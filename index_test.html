@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>足球联赛历史数据库</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    
+    <script src="cslData.js"></script>
+    <script src="eplData.js"></script>
+    <script src="bundesligaData.js"></script>
+
+    <style>
+        body { font-family: 'Microsoft YaHei', sans-serif; padding: 20px; background-color: #f4f4f9; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h1 { text-align: center; color: #333; margin-bottom: 5px;}
+        .subtitle { text-align: center; color: #666; font-size: 14px; margin-bottom: 20px; }
+        .controls { text-align: center; margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; }
+        .controls select { padding: 8px 15px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc; margin: 0 10px; }
+        .controls label { margin-left: 15px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border-bottom: 1px solid #ddd; padding: 12px 8px; text-align: center; }
+        th { background-color: #004b87; color: white; }
+        tr:hover { background-color: #f1f1f1; }
+        #trendChart { width: 100%; height: 400px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>足球联赛数据查询系统</h1>
+    <div class="subtitle">支持多联赛、多赛季、按轮次查询积分榜与排名走势</div>
+    
+    <div class="controls" style="background-color: #e2e8f0; border: 1px solid #cbd5e1;">
+        <label for="leagueSelect" style="margin-left: 0;"><strong>⚽ 选择联赛：</strong></label>
+        <select id="leagueSelect" onchange="changeLeague()">
+            <option value="csl">中超联赛</option>
+	    <option value="epl">英超联赛</option>
+            <option value="bundesliga">德甲联赛</option>
+            </select>
+
+        <label for="seasonSelect"><strong>🏆 选择赛季：</strong></label>
+        <select id="seasonSelect" onchange="changeSeason()"></select>
+    </div>
+</div>
+
+<div class="container">
+    <div class="controls">
+        <label for="teamSelect"><strong>📈 查看球队走势：</strong></label>
+        <select id="teamSelect" onchange="renderChart()"></select>
+    </div>
+    <div id="trendChart"></div>
+</div>
+
+<div class="container">
+    <div class="controls">
+        <label for="roundSelect"><strong>📊 选择截止轮次：</strong></label>
+        <select id="roundSelect" onchange="renderTable()"></select>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>排名</th><th>球队</th><th>场次</th><th>胜</th><th>平</th><th>负</th><th>进球</th><th>失球</th><th>净胜球</th><th>积分</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+</div>
+
+<script>
+    // === 4. 核心数据调度逻辑 ===
+    
+    // 用来存放目前正在查看的【整个联赛】的数据
+    let allSeasonsData = {}; 
+    // 用来存放目前正在查看的【某个赛季】的比赛
+    let currentMatches = [];
+
+    // 当用户切换联赛时执行
+    function changeLeague() {
+        let selectedLeague = document.getElementById("leagueSelect").value;
+        
+        // 根据用户的选择，把对应的外部数据包“装载”进来
+        if (selectedLeague === "csl") {
+            // 这里判断一下 cslData 是否存在，防止外部 js 文件没加载成功报错
+            allSeasonsData = typeof cslData !== 'undefined' ? cslData : {};
+        } 
+        //以后加上英超的数据包可以这么写：
+        else if (selectedLeague === "epl") {
+            allSeasonsData = typeof eplData !== 'undefined' ? eplData : {};
+        }
+        //以后加上德甲的数据包可以这么写：
+        else if (selectedLeague === "bundesliga") {
+            allSeasonsData = typeof bundesligaData !== 'undefined' ? bundesligaData : {};
+        }
+
+        // 数据装载完毕后，清洗队名
+        cleanTeamNames();
+        // 重新生成赛季的下拉框
+        initSeasonSelect();
+    }
+
+    // === 5. 数据清洗逻辑 ===
+    function cleanTeamNames() {
+        for (let season in allSeasonsData) {
+            allSeasonsData[season].forEach(m => {
+                if (m.home === "河南") m.home = "河南队";
+                if (m.home === "浙江") m.home = "浙江队";
+                if (m.away === "河南") m.away = "河南队";
+                if (m.away === "浙江") m.away = "浙江队";
+            });
+        }
+    }
+
+    // === 6. 计算积分榜逻辑 (保持之前的严谨算法不变) ===
+    function calculateStandings(targetRound) {
+        let teams = {};
+        let validMatches = currentMatches.filter(m => m.round <= targetRound);
+
+        validMatches.forEach(m => {
+            if (!teams[m.home]) teams[m.home] = { name: m.home, played: 0, win: 0, draw: 0, loss: 0, gf: 0, ga: 0, gd: 0, pts: 0 };
+            if (!teams[m.away]) teams[m.away] = { name: m.away, played: 0, win: 0, draw: 0, loss: 0, gf: 0, ga: 0, gd: 0, pts: 0 };
+
+            let homeTeam = teams[m.home];
+            let awayTeam = teams[m.away];
+
+            homeTeam.played++; awayTeam.played++;
+            homeTeam.gf += m.homeScore; awayTeam.gf += m.awayScore;
+            homeTeam.ga += m.awayScore; awayTeam.ga += m.homeScore;
+
+            if (m.homeScore > m.awayScore) {
+                homeTeam.win++; awayTeam.loss++; homeTeam.pts += 3;
+            } else if (m.homeScore < m.awayScore) {
+                homeTeam.loss++; awayTeam.win++; awayTeam.pts += 3;
+            } else {
+                homeTeam.draw++; awayTeam.draw++; homeTeam.pts += 1; awayTeam.pts += 1;
+            }
+        });
+
+        let standings = Object.values(teams);
+        standings.forEach(t => t.gd = t.gf - t.ga);
+        standings.sort((a, b) => {
+            if (b.pts !== a.pts) return b.pts - a.pts;
+            let mutualMatches = validMatches.filter(m => 
+                (m.home === a.name && m.away === b.name) || 
+                (m.home === b.name && m.away === a.name)
+            );
+            if (mutualMatches.length === 2) {
+                let aMutualPts = 0, bMutualPts = 0, aMutualGD = 0, bMutualGD = 0, aMutualGF = 0, bMutualGF = 0;
+                mutualMatches.forEach(m => {
+                    let aIsHome = m.home === a.name;
+                    let aScore = aIsHome ? m.homeScore : m.awayScore;
+                    let bScore = aIsHome ? m.awayScore : m.homeScore;
+                    aMutualGF += aScore; bMutualGF += bScore;
+                    aMutualGD += (aScore - bScore); bMutualGD += (bScore - aScore);
+                    if (aScore > bScore) aMutualPts += 3;
+                    else if (aScore < bScore) bMutualPts += 3;
+                    else { aMutualPts += 1; bMutualPts += 1; }
+                });
+                if (bMutualPts !== aMutualPts) return bMutualPts - aMutualPts;
+                if (bMutualGD !== aMutualGD) return bMutualGD - aMutualGD;
+                if (bMutualGF !== aMutualGF) return bMutualGF - aMutualGF;
+            }
+            if (b.gd !== a.gd) return b.gd - a.gd;
+            return b.gf - a.gf;
+        });
+        return standings;
+    }
+
+    function getAllTeams() {
+        let teams = new Set();
+        currentMatches.forEach(m => { teams.add(m.home); teams.add(m.away); });
+        return Array.from(teams);
+    }
+
+    function getTeamRankHistory(teamName) {
+        let maxRound = currentMatches.length > 0 ? Math.max(...currentMatches.map(m => m.round)) : 0;
+        let history = [];
+        for (let i = 1; i <= maxRound; i++) {
+            let standings = calculateStandings(i);
+            let index = standings.findIndex(t => t.name === teamName);
+            if (index !== -1) history.push(index + 1);
+        }
+        return history;
+    }
+
+    // === 7. 页面联动组件 ===
+    function initSeasonSelect() {
+        let seasonSelect = document.getElementById("seasonSelect");
+        seasonSelect.innerHTML = ""; // 清空旧的赛季选项
+        
+        for (let season in allSeasonsData) {
+            let option = document.createElement("option");
+            option.value = season; option.text = season;
+            seasonSelect.appendChild(option);
+        }
+        // 如果该联赛有数据，触发赛季切换
+        if(Object.keys(allSeasonsData).length > 0) {
+            changeSeason();
+        } else {
+            // 如果没数据，清空下方的表和图
+            currentMatches = [];
+            updateSubSelects();
+            renderTable();
+            if(myChart) myChart.clear();
+        }
+    }
+
+    function changeSeason() {
+        let selectedSeason = document.getElementById("seasonSelect").value;
+        currentMatches = allSeasonsData[selectedSeason] || [];
+        updateSubSelects();
+        renderTable();
+        renderChart();
+    }
+
+    function updateSubSelects() {
+        let roundSelect = document.getElementById("roundSelect");
+        let teamSelect = document.getElementById("teamSelect");
+        roundSelect.innerHTML = "";
+        teamSelect.innerHTML = "";
+
+        if (currentMatches.length === 0) return;
+
+        let maxRound = Math.max(...currentMatches.map(m => m.round));
+        for (let i = 1; i <= maxRound; i++) {
+            let option = document.createElement("option");
+            option.value = i; option.text = `第 ${i} 轮`;
+            roundSelect.appendChild(option);
+        }
+        roundSelect.value = maxRound;
+
+        let allTeams = getAllTeams();
+        allTeams.forEach(team => {
+            let option = document.createElement("option");
+            option.value = team; option.text = team;
+            teamSelect.appendChild(option);
+        });
+    }
+
+    function renderTable() {
+        let tbody = document.getElementById("tableBody");
+        tbody.innerHTML = ""; 
+        if (currentMatches.length === 0) return;
+
+        let targetRound = parseInt(document.getElementById("roundSelect").value);
+        let data = calculateStandings(targetRound);
+
+        data.forEach((team, index) => {
+            let tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${index + 1}</td>
+                <td><strong>${team.name}</strong></td>
+                <td>${team.played}</td>
+                <td>${team.win}</td>
+                <td>${team.draw}</td>
+                <td>${team.loss}</td>
+                <td>${team.gf}</td>
+                <td>${team.ga}</td>
+                <td>${team.gd}</td>
+                <td><strong>${team.pts}</strong></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    let myChart = null;
+    function renderChart() {
+        if (currentMatches.length === 0) return;
+        let team = document.getElementById("teamSelect").value;
+        let maxRound = Math.max(...currentMatches.map(m => m.round));
+        let totalTeams = getAllTeams().length;
+        
+        let xData = [];
+        for(let i=1; i<=maxRound; i++) xData.push(`第${i}轮`);
+        let yData = getTeamRankHistory(team);
+
+        if (!myChart) {
+            myChart = echarts.init(document.getElementById('trendChart'));
+        }
+
+        let option = {
+            tooltip: { trigger: 'axis', formatter: function (params) { return `${params[0].name}<br/>排名: 第 <b>${params[0].data}</b> 名`; } },
+            grid: { left: '5%', right: '5%', bottom: '10%', top: '10%', containLabel: true },
+            xAxis: { type: 'category', data: xData, boundaryGap: false },
+            yAxis: { type: 'value', inverse: true, min: 1, max: totalTeams, minInterval: 1 },
+            series: [{
+                name: '排名', data: yData, type: 'line',
+                label: { show: true, position: 'bottom', formatter: '{c}' },
+                itemStyle: { color: '#e3001b' },
+                lineStyle: { width: 3 }
+            }]
+        };
+        myChart.setOption(option, true);
+    }
+
+    // === 8. 网页启动入口 ===
+    window.onload = () => {
+        // 网页一加载，直接触发“切换联赛”逻辑，默认加载中超数据
+        changeLeague(); 
+    };
+</script>
+</body>
+</html>
