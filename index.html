@@ -3,8 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>中超联赛历史数据库</title>
+    <title>足球联赛历史数据库</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    
+    <script src="cslData.js"></script>
+    <script src="eplData.js"></script>
+    <script src="bundesligaData.js"></script>
+
     <style>
         body { font-family: 'Microsoft YaHei', sans-serif; padding: 20px; background-color: #f4f4f9; }
         .container { max-width: 900px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
@@ -23,11 +28,18 @@
 <body>
 
 <div class="container">
-    <h1>中超联赛数据查询系统</h1>
-    <div class="subtitle">支持按赛季、轮次查询积分榜与排名走势</div>
+    <h1>足球联赛数据查询系统</h1>
+    <div class="subtitle">支持多联赛、多赛季、按轮次查询积分榜与排名走势</div>
     
     <div class="controls" style="background-color: #e2e8f0; border: 1px solid #cbd5e1;">
-        <label for="seasonSelect" style="margin-left: 0;"><strong>🏆 选择赛季：</strong></label>
+        <label for="leagueSelect" style="margin-left: 0;"><strong>⚽ 选择联赛：</strong></label>
+        <select id="leagueSelect" onchange="changeLeague()">
+            <option value="csl">中超联赛</option>
+	    <option value="epl">英超联赛</option>
+            <option value="bundesliga">德甲联赛</option>
+            </select>
+
+        <label for="seasonSelect"><strong>🏆 选择赛季：</strong></label>
         <select id="seasonSelect" onchange="changeSeason()"></select>
     </div>
 </div>
@@ -56,616 +68,50 @@
 </div>
 
 <script>
-    // === 1. 数据结构大升级：按赛季分组 ===
-    // 以后你只需要在这里面添加新的赛季，或者在现有赛季里加数据即可
-    const allSeasonsData = {
-        "2026赛季": [
-            { round: 1, home: "成都蓉城", away: "深圳新鹏城", homeScore: 5, awayScore: 1 },
-        { round: 1, home: "天津津门虎", away: "重庆铜梁龙", homeScore: 0, awayScore: 0 },
-        { round: 1, home: "山东泰山", away: "辽宁铁人", homeScore: 3, awayScore: 0 },
-        { round: 1, home: "上海申花", away: "大连英博", homeScore: 5, awayScore: 3 },
-	{ round: 1, home: "上海海港", away: "河南", homeScore: 1, awayScore: 2 },
-        { round: 1, home: "云南玉昆", away: "青岛海牛", homeScore: 3, awayScore: 1 },
-        { round: 1, home: "浙江", away: "青岛西海岸", homeScore: 2, awayScore: 0 },
-        { round: 1, home: "武汉三镇", away: "北京国安", homeScore: 0, awayScore: 2 },
+    // === 4. 核心数据调度逻辑 ===
+    
+    // 用来存放目前正在查看的【整个联赛】的数据
+    let allSeasonsData = {}; 
+    // 用来存放目前正在查看的【某个赛季】的比赛
+    let currentMatches = [];
 
-	{ round: 2, home: "武汉三镇", away: "大连英博", homeScore: 4, awayScore: 1 },
-        { round: 2, home: "山东泰山", away: "北京国安", homeScore: 2, awayScore: 1 },
-        { round: 2, home: "浙江", away: "上海申花", homeScore: 1, awayScore: 1 },
-        { round: 2, home: "重庆铜梁龙", away: "辽宁铁人", homeScore: 1, awayScore: 0 },
-	{ round: 2, home: "深圳新鹏城", away: "天津津门虎", homeScore: 1, awayScore: 0 },
-        { round: 2, home: "河南", away: "云南玉昆", homeScore: 2, awayScore: 1 },
-        { round: 2, home: "上海海港", away: "青岛西海岸", homeScore: 4, awayScore: 1 },
-        { round: 2, home: "成都蓉城", away: "青岛海牛", homeScore: 1, awayScore: 0 },
+    // 当用户切换联赛时执行
+    function changeLeague() {
+        let selectedLeague = document.getElementById("leagueSelect").value;
+        
+        // 根据用户的选择，把对应的外部数据包“装载”进来
+        if (selectedLeague === "csl") {
+            // 这里判断一下 cslData 是否存在，防止外部 js 文件没加载成功报错
+            allSeasonsData = typeof cslData !== 'undefined' ? cslData : {};
+        } 
+        //以后加上英超的数据包可以这么写：
+        else if (selectedLeague === "epl") {
+            allSeasonsData = typeof eplData !== 'undefined' ? eplData : {};
+        }
+        //以后加上德甲的数据包可以这么写：
+        else if (selectedLeague === "bundesliga") {
+            allSeasonsData = typeof bundesligaData !== 'undefined' ? bundesligaData : {};
+        }
 
-	{ round: 3, home: "大连英博", away: "上海海港", homeScore: 1, awayScore: 0 },
-        { round: 3, home: "青岛海牛", away: "浙江", homeScore: 1, awayScore: 4 },
-        { round: 3, home: "北京国安", away: "上海申花", homeScore: 1, awayScore: 1 },
-        { round: 3, home: "辽宁铁人", away: "天津津门虎", homeScore: 3, awayScore: 0 },
-	{ round: 3, home: "云南玉昆", away: "山东泰山", homeScore: 4, awayScore: 0 },
-        { round: 3, home: "重庆铜梁龙", away: "成都蓉城", homeScore: 3, awayScore: 3 },
-        { round: 3, home: "青岛西海岸", away: "深圳新鹏城", homeScore: 1, awayScore: 0 },
-        { round: 3, home: "河南", away: "武汉三镇", homeScore: 1, awayScore: 1 },
+        // 数据装载完毕后，清洗队名
+        cleanTeamNames();
+        // 重新生成赛季的下拉框
+        initSeasonSelect();
+    }
 
-	{ round: 4, home: "成都蓉城", away: "青岛西海岸", homeScore: 5, awayScore: 1 },
-        { round: 4, home: "青岛海牛", away: "河南", homeScore: 1, awayScore: 0 },
-        { round: 4, home: "辽宁铁人", away: "北京国安", homeScore: 2, awayScore: 1 },
-        { round: 4, home: "山东泰山", away: "大连英博", homeScore: 1, awayScore: 2 },
-	{ round: 4, home: "上海海港", away: "云南玉昆", homeScore: 2, awayScore: 1 },
-        { round: 4, home: "浙江", away: "重庆铜梁龙", homeScore: 0, awayScore: 1 },
-        { round: 4, home: "深圳新鹏城", away: "武汉三镇", homeScore: 5, awayScore: 2 },
-        { round: 4, home: "天津津门虎", away: "上海申花", homeScore: 2, awayScore: 3 },
-        ],
-
-        "2025赛季": [
-
-	// === 第 1 轮 ===
-            { round: 1, home: "成都蓉城", away: "武汉三镇", homeScore: 1, awayScore: 0 },
-            { round: 1, home: "上海申花", away: "长春亚泰", homeScore: 2, awayScore: 1 },
-            { round: 1, home: "云南玉昆", away: "北京国安", homeScore: 0, awayScore: 2 },
-            { round: 1, home: "青岛海牛", away: "青岛西海岸", homeScore: 2, awayScore: 2 },
-            { round: 1, home: "浙江队", away: "大连英博", homeScore: 1, awayScore: 1 },
-            { round: 1, home: "山东泰山", away: "河南队", homeScore: 0, awayScore: 0 },
-            { round: 1, home: "天津津门虎", away: "梅州客家", homeScore: 2, awayScore: 2 },
-            { round: 1, home: "上海海港", away: "深圳新鹏城", homeScore: 3, awayScore: 1 },
-
-	// === 第 2 轮 ===
-            { round: 2, home: "山东泰山", away: "大连英博", homeScore: 4, awayScore: 1 },
-            { round: 2, home: "上海海港", away: "长春亚泰", homeScore: 2, awayScore: 0 },
-            { round: 2, home: "青岛海牛", away: "深圳新鹏城", homeScore: 0, awayScore: 1 },
-            { round: 2, home: "梅州客家", away: "河南队", homeScore: 2, awayScore: 1 },
-            { round: 2, home: "上海申花", away: "北京国安", homeScore: 2, awayScore: 2 },
-            { round: 2, home: "云南玉昆", away: "浙江队", homeScore: 1, awayScore: 1 },
-            { round: 2, home: "成都蓉城", away: "天津津门虎", homeScore: 1, awayScore: 2 },
-            { round: 2, home: "青岛西海岸", away: "武汉三镇", homeScore: 2, awayScore: 0 },
-
-            // === 第 3 轮 ===
-            { round: 3, home: "青岛西海岸", away: "上海海港", homeScore: 3, awayScore: 3 },
-            { round: 3, home: "武汉三镇", away: "浙江队", homeScore: 0, awayScore: 4 },
-            { round: 3, home: "深圳新鹏城", away: "云南玉昆", homeScore: 3, awayScore: 4 },
-            { round: 3, home: "大连英博", away: "长春亚泰", homeScore: 2, awayScore: 0 },
-            { round: 3, home: "天津津门虎", away: "青岛海牛", homeScore: 1, awayScore: 0 },
-            { round: 3, home: "河南队", away: "上海申花", homeScore: 1, awayScore: 3 },
-            { round: 3, home: "梅州客家", away: "山东泰山", homeScore: 3, awayScore: 4 },
-            { round: 3, home: "北京国安", away: "成都蓉城", homeScore: 1, awayScore: 1 },
-
-            // === 第 4 轮 ===
-            { round: 4, home: "河南队", away: "青岛西海岸", homeScore: 2, awayScore: 3 },
-            { round: 4, home: "浙江队", away: "深圳新鹏城", homeScore: 3, awayScore: 0 },
-            { round: 4, home: "长春亚泰", away: "武汉三镇", homeScore: 1, awayScore: 1 },
-            { round: 4, home: "上海申花", away: "云南玉昆", homeScore: 3, awayScore: 1 },
-            { round: 4, home: "青岛海牛", away: "大连英博", homeScore: 1, awayScore: 1 },
-            { round: 4, home: "山东泰山", away: "成都蓉城", homeScore: 0, awayScore: 3 },
-            { round: 4, home: "天津津门虎", away: "北京国安", homeScore: 2, awayScore: 2 },
-            { round: 4, home: "上海海港", away: "梅州客家", homeScore: 2, awayScore: 1 },
-
-            // === 第 5 轮 ===
-            { round: 5, home: "深圳新鹏城", away: "河南队", homeScore: 1, awayScore: 3 },
-            { round: 5, home: "长春亚泰", away: "山东泰山", homeScore: 1, awayScore: 2 },
-            { round: 5, home: "青岛西海岸", away: "天津津门虎", homeScore: 2, awayScore: 2 },
-            { round: 5, home: "梅州客家", away: "武汉三镇", homeScore: 3, awayScore: 1 },
-            { round: 5, home: "成都蓉城", away: "大连英博", homeScore: 2, awayScore: 0 },
-            { round: 5, home: "上海海港", away: "上海申花", homeScore: 1, awayScore: 1 },
-            { round: 5, home: "北京国安", away: "浙江队", homeScore: 2, awayScore: 0 },
-            { round: 5, home: "云南玉昆", away: "青岛海牛", homeScore: 1, awayScore: 0 },
-
-	   // === 第 6 轮 ===
-            { round: 6, home: "山东泰山", away: "深圳新鹏城", homeScore: 4, awayScore: 0 },
-            { round: 6, home: "梅州客家", away: "长春亚泰", homeScore: 1, awayScore: 3 },
-            { round: 6, home: "大连英博", away: "天津津门虎", homeScore: 1, awayScore: 1 },
-            { round: 6, home: "青岛海牛", away: "成都蓉城", homeScore: 0, awayScore: 1 },
-            { round: 6, home: "武汉三镇", away: "云南玉昆", homeScore: 3, awayScore: 1 },
-            { round: 6, home: "上海申花", away: "浙江队", homeScore: 3, awayScore: 2 },
-            { round: 6, home: "北京国安", away: "青岛西海岸", homeScore: 1, awayScore: 0 },
-            { round: 6, home: "河南队", away: "上海海港", homeScore: 1, awayScore: 3 },
-
-            // === 第 7 轮 ===
-            { round: 7, home: "青岛西海岸", away: "山东泰山", homeScore: 1, awayScore: 5 },
-            { round: 7, home: "武汉三镇", away: "北京国安", homeScore: 4, awayScore: 4 },
-            { round: 7, home: "深圳新鹏城", away: "长春亚泰", homeScore: 3, awayScore: 1 },
-            { round: 7, home: "天津津门虎", away: "上海海港", homeScore: 1, awayScore: 4 },
-            { round: 7, home: "大连英博", away: "河南队", homeScore: 1, awayScore: 0 },
-            { round: 7, home: "浙江队", away: "梅州客家", homeScore: 2, awayScore: 2 },
-            { round: 7, home: "成都蓉城", away: "云南玉昆", homeScore: 1, awayScore: 1 },
-            { round: 7, home: "上海申花", away: "青岛海牛", homeScore: 3, awayScore: 2 },
-
-            // === 第 8 轮 ===
-            { round: 8, home: "上海申花", away: "武汉三镇", homeScore: 2, awayScore: 0 },
-            { round: 8, home: "北京国安", away: "山东泰山", homeScore: 6, awayScore: 1 },
-            { round: 8, home: "长春亚泰", away: "云南玉昆", homeScore: 0, awayScore: 0 },
-            { round: 8, home: "青岛西海岸", away: "大连英博", homeScore: 2, awayScore: 0 },
-            { round: 8, home: "河南队", away: "青岛海牛", homeScore: 3, awayScore: 1 },
-            { round: 8, home: "梅州客家", away: "深圳新鹏城", homeScore: 3, awayScore: 0 },
-            { round: 8, home: "天津津门虎", away: "浙江队", homeScore: 2, awayScore: 0 },
-            { round: 8, home: "上海海港", away: "成都蓉城", homeScore: 1, awayScore: 3 },
-
-            // === 第 9 轮 ===
-            { round: 9, home: "北京国安", away: "河南队", homeScore: 1, awayScore: 0 },
-            { round: 9, home: "云南玉昆", away: "上海海港", homeScore: 2, awayScore: 3 },
-            { round: 9, home: "长春亚泰", away: "成都蓉城", homeScore: 1, awayScore: 2 },
-            { round: 9, home: "深圳新鹏城", away: "大连英博", homeScore: 1, awayScore: 1 },
-            { round: 9, home: "山东泰山", away: "上海申花", homeScore: 0, awayScore: 1 },
-            { round: 9, home: "武汉三镇", away: "天津津门虎", homeScore: 2, awayScore: 1 },
-            { round: 9, home: "青岛海牛", away: "梅州客家", homeScore: 1, awayScore: 1 },
-            { round: 9, home: "浙江队", away: "青岛西海岸", homeScore: 2, awayScore: 1 },
-
-            // === 第 10 轮 ===
-            { round: 10, home: "大连英博", away: "云南玉昆", homeScore: 3, awayScore: 2 },
-            { round: 10, home: "深圳新鹏城", away: "天津津门虎", homeScore: 1, awayScore: 0 },
-            { round: 10, home: "浙江队", away: "长春亚泰", homeScore: 4, awayScore: 2 },
-            { round: 10, home: "河南队", away: "武汉三镇", homeScore: 1, awayScore: 2 },
-            { round: 10, home: "山东泰山", away: "青岛海牛", homeScore: 1, awayScore: 1 },
-            { round: 10, home: "上海海港", away: "北京国安", homeScore: 1, awayScore: 2 },
-            { round: 10, home: "青岛西海岸", away: "梅州客家", homeScore: 3, awayScore: 1 },
-            { round: 10, home: "成都蓉城", away: "上海申花", homeScore: 1, awayScore: 0 },
-
-	// === 第 11 轮 ===
-            { round: 11, home: "大连英博", away: "北京国安", homeScore: 0, awayScore: 2 },
-            { round: 11, home: "河南队", away: "天津津门虎", homeScore: 3, awayScore: 4 },
-            { round: 11, home: "武汉三镇", away: "上海海港", homeScore: 0, awayScore: 2 },
-            { round: 11, home: "青岛海牛", away: "长春亚泰", homeScore: 3, awayScore: 0 },
-            { round: 11, home: "成都蓉城", away: "浙江队", homeScore: 2, awayScore: 1 },
-            { round: 11, home: "云南玉昆", away: "山东泰山", homeScore: 3, awayScore: 2 },
-            { round: 11, home: "梅州客家", away: "上海申花", homeScore: 1, awayScore: 3 },
-            { round: 11, home: "青岛西海岸", away: "深圳新鹏城", homeScore: 0, awayScore: 0 },
-
-            // === 第 12 轮 ===
-            { round: 12, home: "上海海港", away: "青岛海牛", homeScore: 3, awayScore: 1 },
-            { round: 12, home: "上海申花", away: "青岛西海岸", homeScore: 4, awayScore: 0 },
-            { round: 12, home: "梅州客家", away: "成都蓉城", homeScore: 0, awayScore: 4 },
-            { round: 12, home: "山东泰山", away: "浙江队", homeScore: 4, awayScore: 2 },
-            { round: 12, home: "北京国安", away: "深圳新鹏城", homeScore: 3, awayScore: 1 },
-            { round: 12, home: "长春亚泰", away: "河南队", homeScore: 0, awayScore: 1 },
-            { round: 12, home: "天津津门虎", away: "云南玉昆", homeScore: 0, awayScore: 1 },
-            { round: 12, home: "武汉三镇", away: "大连英博", homeScore: 2, awayScore: 2 },
-
-            // === 第 13 轮 ===
-            { round: 13, home: "浙江队", away: "河南队", homeScore: 2, awayScore: 2 },
-            { round: 13, home: "云南玉昆", away: "梅州客家", homeScore: 2, awayScore: 0 },
-            { round: 13, home: "大连英博", away: "上海申花", homeScore: 0, awayScore: 3 },
-            { round: 13, home: "长春亚泰", away: "天津津门虎", homeScore: 1, awayScore: 2 },
-            { round: 13, home: "青岛海牛", away: "北京国安", homeScore: 1, awayScore: 1 },
-            { round: 13, home: "成都蓉城", away: "青岛西海岸", homeScore: 1, awayScore: 1 },
-            { round: 13, home: "上海海港", away: "山东泰山", homeScore: 1, awayScore: 1 },
-            { round: 13, home: "深圳新鹏城", away: "武汉三镇", homeScore: 1, awayScore: 2 },
-
-            // === 第 14 轮 ===
-            { round: 14, home: "大连英博", away: "梅州客家", homeScore: 1, awayScore: 0 },
-            { round: 14, home: "武汉三镇", away: "青岛海牛", homeScore: 2, awayScore: 0 },
-            { round: 14, home: "浙江队", away: "上海海港", homeScore: 2, awayScore: 2 },
-            { round: 14, home: "青岛西海岸", away: "云南玉昆", homeScore: 0, awayScore: 0 },
-            { round: 14, home: "北京国安", away: "长春亚泰", homeScore: 2, awayScore: 1 },
-            { round: 14, home: "深圳新鹏城", away: "上海申花", homeScore: 3, awayScore: 1 },
-            { round: 14, home: "河南队", away: "成都蓉城", homeScore: 3, awayScore: 2 },
-            { round: 14, home: "天津津门虎", away: "山东泰山", homeScore: 1, awayScore: 0 },
-
-            // === 第 15 轮 ===
-            { round: 15, home: "上海申花", away: "天津津门虎", homeScore: 3, awayScore: 0 },
-            { round: 15, home: "青岛海牛", away: "浙江队", homeScore: 0, awayScore: 3 },
-            { round: 15, home: "山东泰山", away: "武汉三镇", homeScore: 3, awayScore: 1 },
-            { round: 15, home: "长春亚泰", away: "青岛西海岸", homeScore: 1, awayScore: 0 },
-            { round: 15, home: "梅州客家", away: "北京国安", homeScore: 0, awayScore: 4 },
-            { round: 15, home: "成都蓉城", away: "深圳新鹏城", homeScore: 5, awayScore: 0 },
-            { round: 15, home: "上海海港", away: "大连英博", homeScore: 3, awayScore: 0 },
-            { round: 15, home: "云南玉昆", away: "河南队", homeScore: 2, awayScore: 1 },
-
-	   // === 第 16 轮 ===
-            { round: 16, home: "长春亚泰", away: "上海申花", homeScore: 1, awayScore: 2 },
-            { round: 16, home: "青岛西海岸", away: "青岛海牛", homeScore: 1, awayScore: 0 },
-            { round: 16, home: "梅州客家", away: "天津津门虎", homeScore: 1, awayScore: 2 },
-            { round: 16, home: "武汉三镇", away: "成都蓉城", homeScore: 2, awayScore: 2 },
-            { round: 16, home: "河南队", away: "山东泰山", homeScore: 2, awayScore: 2 },
-            { round: 16, home: "大连英博", away: "浙江队", homeScore: 1, awayScore: 0 },
-            { round: 16, home: "北京国安", away: "云南玉昆", homeScore: 2, awayScore: 1 },
-            { round: 16, home: "深圳新鹏城", away: "上海海港", homeScore: 1, awayScore: 2 },
-
-            // === 第 17 轮 ===
-            { round: 17, home: "长春亚泰", away: "上海海港", homeScore: 1, awayScore: 3 },
-            { round: 17, home: "武汉三镇", away: "青岛西海岸", homeScore: 1, awayScore: 1 },
-            { round: 17, home: "天津津门虎", away: "成都蓉城", homeScore: 2, awayScore: 1 },
-            { round: 17, home: "浙江队", away: "云南玉昆", homeScore: 3, awayScore: 1 },
-            { round: 17, home: "大连英博", away: "山东泰山", homeScore: 2, awayScore: 0 },
-            { round: 17, home: "北京国安", away: "上海申花", homeScore: 1, awayScore: 3 },
-            { round: 17, home: "深圳新鹏城", away: "青岛海牛", homeScore: 4, awayScore: 0 },
-            { round: 17, home: "河南队", away: "梅州客家", homeScore: 1, awayScore: 1 },
-
-            // === 第 18 轮 ===
-            { round: 18, home: "上海海港", away: "青岛西海岸", homeScore: 2, awayScore: 2 },
-            { round: 18, home: "成都蓉城", away: "北京国安", homeScore: 2, awayScore: 0 },
-            { round: 18, home: "云南玉昆", away: "深圳新鹏城", homeScore: 3, awayScore: 1 },
-            { round: 18, home: "青岛海牛", away: "天津津门虎", homeScore: 2, awayScore: 0 },
-            { round: 18, home: "长春亚泰", away: "大连英博", homeScore: 0, awayScore: 2 },
-            { round: 18, home: "上海申花", away: "河南队", homeScore: 3, awayScore: 2 },
-            { round: 18, home: "浙江队", away: "武汉三镇", homeScore: 3, awayScore: 2 },
-            { round: 18, home: "山东泰山", away: "梅州客家", homeScore: 3, awayScore: 0 },
-
-            // === 第 19 轮 ===
-            { round: 19, home: "云南玉昆", away: "上海申花", homeScore: 4, awayScore: 4 },
-            { round: 19, home: "青岛西海岸", away: "河南队", homeScore: 2, awayScore: 1 },
-            { round: 19, home: "成都蓉城", away: "山东泰山", homeScore: 2, awayScore: 1 },
-            { round: 19, home: "梅州客家", away: "上海海港", homeScore: 2, awayScore: 4 },
-            { round: 19, home: "大连英博", away: "青岛海牛", homeScore: 2, awayScore: 0 },
-            { round: 19, home: "北京国安", away: "天津津门虎", homeScore: 2, awayScore: 2 },
-            { round: 19, home: "武汉三镇", away: "长春亚泰", homeScore: 0, awayScore: 0 },
-            { round: 19, home: "深圳新鹏城", away: "浙江队", homeScore: 2, awayScore: 4 },
-
-            // === 第 20 轮 ===
-            { round: 20, home: "大连英博", away: "成都蓉城", homeScore: 0, awayScore: 2 },
-            { round: 20, home: "河南队", away: "深圳新鹏城", homeScore: 4, awayScore: 1 },
-            { round: 20, home: "山东泰山", away: "长春亚泰", homeScore: 2, awayScore: 1 },
-            { round: 20, home: "上海申花", away: "上海海港", homeScore: 1, awayScore: 2 },
-            { round: 20, home: "青岛海牛", away: "云南玉昆", homeScore: 5, awayScore: 1 },
-            { round: 20, home: "天津津门虎", away: "青岛西海岸", homeScore: 0, awayScore: 0 },
-            { round: 20, home: "浙江队", away: "北京国安", homeScore: 3, awayScore: 4 },
-            { round: 20, home: "武汉三镇", away: "梅州客家", homeScore: 1, awayScore: 2 },
-
-	   // === 第 21 轮 ===
-            { round: 21, home: "上海海港", away: "河南队", homeScore: 4, awayScore: 1 },
-            { round: 21, home: "云南玉昆", away: "武汉三镇", homeScore: 2, awayScore: 1 },
-            { round: 21, home: "天津津门虎", away: "大连英博", homeScore: 2, awayScore: 0 },
-            { round: 21, home: "青岛西海岸", away: "北京国安", homeScore: 1, awayScore: 3 },
-            { round: 21, home: "长春亚泰", away: "梅州客家", homeScore: 1, awayScore: 0 },
-            { round: 21, home: "深圳新鹏城", away: "山东泰山", homeScore: 1, awayScore: 3 },
-            { round: 21, home: "浙江队", away: "上海申花", homeScore: 0, awayScore: 0 },
-            { round: 21, home: "成都蓉城", away: "青岛海牛", homeScore: 0, awayScore: 0 },
-
-            // === 第 22 轮 ===
-            { round: 22, home: "云南玉昆", away: "成都蓉城", homeScore: 1, awayScore: 5 },
-            { round: 22, home: "青岛海牛", away: "上海申花", homeScore: 0, awayScore: 2 },
-            { round: 22, home: "上海海港", away: "天津津门虎", homeScore: 1, awayScore: 1 },
-            { round: 22, home: "梅州客家", away: "浙江队", homeScore: 2, awayScore: 2 },
-            { round: 22, home: "长春亚泰", away: "深圳新鹏城", homeScore: 1, awayScore: 0 },
-            { round: 22, home: "河南队", away: "大连英博", homeScore: 4, awayScore: 0 },
-            { round: 22, home: "山东泰山", away: "青岛西海岸", homeScore: 3, awayScore: 2 },
-            { round: 22, home: "北京国安", away: "武汉三镇", homeScore: 4, awayScore: 0 },
-
-            // === 第 23 轮 ===
-            { round: 23, home: "浙江队", away: "天津津门虎", homeScore: 2, awayScore: 0 },
-            { round: 23, home: "青岛海牛", away: "河南队", homeScore: 1, awayScore: 1 },
-            { round: 23, home: "成都蓉城", away: "上海海港", homeScore: 4, awayScore: 1 },
-            { round: 23, home: "云南玉昆", away: "长春亚泰", homeScore: 1, awayScore: 1 },
-            { round: 23, home: "武汉三镇", away: "上海申花", homeScore: 1, awayScore: 0 },
-            { round: 23, home: "深圳新鹏城", away: "梅州客家", homeScore: 2, awayScore: 0 },
-            { round: 23, home: "山东泰山", away: "北京国安", homeScore: 6, awayScore: 0 },
-            { round: 23, home: "大连英博", away: "青岛西海岸", homeScore: 0, awayScore: 2 },
-
-            // === 第 24 轮 ===
-            { round: 24, home: "上海海港", away: "云南玉昆", homeScore: 4, awayScore: 2 },
-            { round: 24, home: "成都蓉城", away: "长春亚泰", homeScore: 1, awayScore: 0 },
-            { round: 24, home: "河南队", away: "北京国安", homeScore: 2, awayScore: 0 },
-            { round: 24, home: "上海申花", away: "山东泰山", homeScore: 3, awayScore: 3 },
-            { round: 24, home: "青岛西海岸", away: "浙江队", homeScore: 0, awayScore: 2 },
-            { round: 24, home: "大连英博", away: "深圳新鹏城", homeScore: 2, awayScore: 1 },
-            { round: 24, home: "天津津门虎", away: "武汉三镇", homeScore: 4, awayScore: 0 },
-            { round: 24, home: "梅州客家", away: "青岛海牛", homeScore: 1, awayScore: 0 },
-
-            // === 第 25 轮 ===
-            { round: 25, home: "武汉三镇", away: "河南队", homeScore: 2, awayScore: 5 },
-            { round: 25, home: "云南玉昆", away: "大连英博", homeScore: 1, awayScore: 1 },
-            { round: 25, home: "长春亚泰", away: "浙江队", homeScore: 3, awayScore: 3 },
-            { round: 25, home: "梅州客家", away: "青岛西海岸", homeScore: 1, awayScore: 2 },
-            { round: 25, home: "青岛海牛", away: "山东泰山", homeScore: 2, awayScore: 2 },
-            { round: 25, home: "北京国安", away: "上海海港", homeScore: 2, awayScore: 3 },
-            { round: 25, home: "天津津门虎", away: "深圳新鹏城", homeScore: 1, awayScore: 0 },
-            { round: 25, home: "上海申花", away: "成都蓉城", homeScore: 1, awayScore: 1 },
-
-	    // === 第 26 轮 ===
-            { round: 26, home: "上海申花", away: "梅州客家", homeScore: 6, awayScore: 1 },
-            { round: 26, home: "北京国安", away: "大连英博", homeScore: 4, awayScore: 2 },
-            { round: 26, home: "浙江队", away: "成都蓉城", homeScore: 3, awayScore: 3 },
-            { round: 26, home: "上海海港", away: "武汉三镇", homeScore: 3, awayScore: 2 },
-            { round: 26, home: "长春亚泰", away: "青岛海牛", homeScore: 2, awayScore: 2 },
-            { round: 26, home: "天津津门虎", away: "河南队", homeScore: 1, awayScore: 0 },
-            { round: 26, home: "深圳新鹏城", away: "青岛西海岸", homeScore: 1, awayScore: 2 },
-            { round: 26, home: "山东泰山", away: "云南玉昆", homeScore: 1, awayScore: 1 },
-
-            // === 第 27 轮 ===
-            { round: 27, home: "青岛海牛", away: "上海海港", homeScore: 3, awayScore: 4 },
-            { round: 27, home: "成都蓉城", away: "梅州客家", homeScore: 3, awayScore: 1 },
-            { round: 27, home: "青岛西海岸", away: "上海申花", homeScore: 1, awayScore: 2 },
-            { round: 27, home: "深圳新鹏城", away: "北京国安", homeScore: 2, awayScore: 1 },
-            { round: 27, home: "浙江队", away: "山东泰山", homeScore: 2, awayScore: 2 },
-            { round: 27, home: "云南玉昆", away: "天津津门虎", homeScore: 2, awayScore: 0 },
-            { round: 27, home: "大连英博", away: "武汉三镇", homeScore: 0, awayScore: 0 },
-            { round: 27, home: "河南队", away: "长春亚泰", homeScore: 2, awayScore: 0 },
-
-            // === 第 28 轮 ===
-            { round: 28, home: "梅州客家", away: "云南玉昆", homeScore: 1, awayScore: 4 },
-            { round: 28, home: "武汉三镇", away: "深圳新鹏城", homeScore: 1, awayScore: 2 },
-            { round: 28, home: "天津津门虎", away: "长春亚泰", homeScore: 2, awayScore: 2 },
-            { round: 28, home: "河南队", away: "浙江队", homeScore: 2, awayScore: 2 },
-            { round: 28, home: "山东泰山", away: "上海海港", homeScore: 3, awayScore: 1 },
-            { round: 28, home: "青岛西海岸", away: "成都蓉城", homeScore: 2, awayScore: 2 },
-            { round: 28, home: "北京国安", away: "青岛海牛", homeScore: 2, awayScore: 4 },
-            { round: 28, home: "上海申花", away: "大连英博", homeScore: 2, awayScore: 2 },
-
-
-                       // === 第 29 轮 ===
-            { round: 29, home: "上海海港", away: "浙江", homeScore: 3, awayScore: 0 },
-            { round: 29, home: "成都蓉城", away: "河南", homeScore: 1, awayScore: 2 },
-            { round: 29, home: "上海申花", away: "深圳新鹏城", homeScore: 1, awayScore: 0 },
-            { round: 29, home: "山东泰山", away: "天津津门虎", homeScore: 2, awayScore: 1 },
-            { round: 29, home: "长春亚泰", away: "北京国安", homeScore: 0, awayScore: 4 },
-            { round: 29, home: "梅州客家", away: "大连英博", homeScore: 2, awayScore: 2 },
-            { round: 29, home: "青岛海牛", away: "武汉三镇", homeScore: 1, awayScore: 0 },
-            { round: 29, home: "云南玉昆", away: "青岛西海岸", homeScore: 1, awayScore: 0 },
-
-            // === 第 30 轮 (收官战) ===
-            { round: 30, home: "大连英博", away: "上海海港", homeScore: 0, awayScore: 1 },
-            { round: 30, home: "北京国安", away: "梅州客家", homeScore: 5, awayScore: 1 },
-            { round: 30, home: "河南", away: "云南玉昆", homeScore: 1, awayScore: 1 },
-            { round: 30, home: "武汉三镇", away: "山东泰山", homeScore: 1, awayScore: 5 },
-            { round: 30, home: "浙江", away: "青岛海牛", homeScore: 2, awayScore: 2 },
-            { round: 30, home: "青岛西海岸", away: "长春亚泰", homeScore: 1, awayScore: 0 },
-            { round: 30, home: "天津津门虎", away: "上海申花", homeScore: 1, awayScore: 3 },
-            { round: 30, home: "深圳新鹏城", away: "成都蓉城", homeScore: 1, awayScore: 1 }
-        ],
-
- 	"2024赛季": [
-{ round: 1, home: "山东泰山", away: "长春亚泰", homeScore: 4, awayScore: 2 },
-            { round: 1, home: "青岛西海岸", away: "河南队", homeScore: 1, awayScore: 1 },
-            { round: 1, home: "上海海港", away: "武汉三镇", homeScore: 3, awayScore: 1 },
-            { round: 1, home: "天津津门虎", away: "南通支云", homeScore: 1, awayScore: 1 },
-            { round: 1, home: "沧州雄狮", away: "北京国安", homeScore: 0, awayScore: 2 },
-            { round: 1, home: "成都蓉城", away: "青岛海牛", homeScore: 2, awayScore: 0 },
-            { round: 1, home: "浙江队", away: "深圳新鹏城", homeScore: 1, awayScore: 0 },
-            { round: 1, home: "梅州客家", away: "上海申花", homeScore: 0, awayScore: 2 },
-            { round: 2, home: "青岛海牛", away: "长春亚泰", homeScore: 0, awayScore: 1 },
-            { round: 2, home: "上海申花", away: "青岛西海岸", homeScore: 2, awayScore: 0 },
-            { round: 2, home: "河南队", away: "梅州客家", homeScore: 2, awayScore: 2 },
-            { round: 2, home: "山东泰山", away: "北京国安", homeScore: 0, awayScore: 0 },
-            { round: 2, home: "浙江队", away: "上海海港", homeScore: 0, awayScore: 0 },
-            { round: 2, home: "南通支云", away: "武汉三镇", homeScore: 1, awayScore: 3 },
-            { round: 2, home: "沧州雄狮", away: "成都蓉城", homeScore: 1, awayScore: 0 },
-            { round: 2, home: "深圳新鹏城", away: "天津津门虎", homeScore: 0, awayScore: 4 },
-            { round: 3, home: "深圳新鹏城", away: "沧州雄狮", homeScore: 2, awayScore: 2 },
-            { round: 3, home: "武汉三镇", away: "北京国安", homeScore: 0, awayScore: 1 },
-            { round: 3, home: "成都蓉城", away: "南通支云", homeScore: 1, awayScore: 0 },
-            { round: 3, home: "青岛西海岸", away: "青岛海牛", homeScore: 1, awayScore: 0 },
-            { round: 3, home: "上海海港", away: "河南队", homeScore: 3, awayScore: 1 },
-            { round: 3, home: "长春亚泰", away: "天津津门虎", homeScore: 0, awayScore: 1 },
-            { round: 3, home: "山东泰山", away: "上海申花", homeScore: 0, awayScore: 3 },
-            { round: 3, home: "梅州客家", away: "浙江队", homeScore: 1, awayScore: 2 },
-            { round: 4, home: "武汉三镇", away: "沧州雄狮", homeScore: 2, awayScore: 3 },
-            { round: 4, home: "长春亚泰", away: "上海申花", homeScore: 1, awayScore: 2 },
-            { round: 4, home: "河南队", away: "深圳新鹏城", homeScore: 0, awayScore: 2 },
-            { round: 4, home: "北京国安", away: "上海海港", homeScore: 2, awayScore: 2 },
-            { round: 4, home: "青岛海牛", away: "山东泰山", homeScore: 0, awayScore: 1 },
-            { round: 4, home: "南通支云", away: "梅州客家", homeScore: 1, awayScore: 0 },
-            { round: 4, home: "天津津门虎", away: "成都蓉城", homeScore: 2, awayScore: 3 },
-            { round: 4, home: "浙江队", away: "青岛西海岸", homeScore: 1, awayScore: 2 },
-            { round: 5, home: "南通支云", away: "上海海港", homeScore: 0, awayScore: 3 },
-            { round: 5, home: "北京国安", away: "深圳新鹏城", homeScore: 1, awayScore: 2 },
-            { round: 5, home: "山东泰山", away: "河南队", homeScore: 2, awayScore: 2 },
-            { round: 5, home: "上海申花", away: "武汉三镇", homeScore: 4, awayScore: 1 },
-            { round: 5, home: "青岛西海岸", away: "天津津门虎", homeScore: 1, awayScore: 3 },
-            { round: 5, home: "沧州雄狮", away: "长春亚泰", homeScore: 2, awayScore: 0 },
-            { round: 5, home: "成都蓉城", away: "浙江队", homeScore: 3, awayScore: 0 },
-            { round: 5, home: "梅州客家", away: "青岛海牛", homeScore: 0, awayScore: 0 },
-            { round: 6, home: "河南队", away: "南通支云", homeScore: 1, awayScore: 1 },
-            { round: 6, home: "上海申花", away: "北京国安", homeScore: 1, awayScore: 1 },
-            { round: 6, home: "长春亚泰", away: "成都蓉城", homeScore: 1, awayScore: 2 },
-            { round: 6, home: "天津津门虎", away: "梅州客家", homeScore: 0, awayScore: 0 },
-            { round: 6, home: "上海海港", away: "山东泰山", homeScore: 4, awayScore: 3 },
-            { round: 6, home: "沧州雄狮", away: "青岛西海岸", homeScore: 3, awayScore: 2 },
-            { round: 6, home: "青岛海牛", away: "浙江队", homeScore: 2, awayScore: 0 },
-            { round: 6, home: "深圳新鹏城", away: "武汉三镇", homeScore: 1, awayScore: 1 },
-            { round: 7, home: "浙江队", away: "天津津门虎", homeScore: 3, awayScore: 2 },
-            { round: 7, home: "山东泰山", away: "沧州雄狮", homeScore: 4, awayScore: 1 },
-            { round: 7, home: "成都蓉城", away: "深圳新鹏城", homeScore: 3, awayScore: 1 },
-            { round: 7, home: "武汉三镇", away: "长春亚泰", homeScore: 0, awayScore: 0 },
-            { round: 7, home: "南通支云", away: "上海申花", homeScore: 0, awayScore: 2 },
-            { round: 7, home: "河南队", away: "青岛海牛", homeScore: 1, awayScore: 0 },
-            { round: 7, home: "北京国安", away: "青岛西海岸", homeScore: 4, awayScore: 1 },
-            { round: 8, home: "青岛西海岸", away: "南通支云", homeScore: 0, awayScore: 2 },
-            { round: 8, home: "深圳新鹏城", away: "青岛海牛", homeScore: 1, awayScore: 3 },
-            { round: 8, home: "长春亚泰", away: "梅州客家", homeScore: 0, awayScore: 1 },
-            { round: 8, home: "浙江队", away: "北京国安", homeScore: 1, awayScore: 2 },
-            { round: 8, home: "沧州雄狮", away: "河南队", homeScore: 2, awayScore: 3 },
-            { round: 8, home: "武汉三镇", away: "天津津门虎", homeScore: 2, awayScore: 1 },
-            { round: 8, home: "成都蓉城", away: "山东泰山", homeScore: 0, awayScore: 1 },
-            { round: 8, home: "上海海港", away: "上海申花", homeScore: 1, awayScore: 1 },
-            { round: 9, home: "山东泰山", away: "南通支云", homeScore: 3, awayScore: 1 },
-            { round: 9, home: "天津津门虎", away: "北京国安", homeScore: 0, awayScore: 1 },
-            { round: 9, home: "浙江队", away: "河南队", homeScore: 4, awayScore: 1 },
-            { round: 9, home: "梅州客家", away: "青岛西海岸", homeScore: 1, awayScore: 1 },
-            { round: 9, home: "长春亚泰", away: "深圳新鹏城", homeScore: 1, awayScore: 1 },
-            { round: 9, home: "青岛海牛", away: "上海海港", homeScore: 0, awayScore: 5 },
-            { round: 9, home: "成都蓉城", away: "武汉三镇", homeScore: 2, awayScore: 2 },
-            { round: 9, home: "上海申花", away: "沧州雄狮", homeScore: 4, awayScore: 0 },
-            { round: 10, home: "青岛西海岸", away: "山东泰山", homeScore: 0, awayScore: 0 },
-            { round: 10, home: "河南队", away: "天津津门虎", homeScore: 1, awayScore: 2 },
-            { round: 10, home: "南通支云", away: "长春亚泰", homeScore: 2, awayScore: 3 },
-            { round: 10, home: "上海申花", away: "浙江队", homeScore: 4, awayScore: 0 },
-            { round: 10, home: "梅州客家", away: "沧州雄狮", homeScore: 1, awayScore: 1 },
-            { round: 10, home: "北京国安", away: "成都蓉城", homeScore: 2, awayScore: 1 },
-            { round: 10, home: "武汉三镇", away: "青岛海牛", homeScore: 1, awayScore: 0 },
-            { round: 10, home: "深圳新鹏城", away: "上海海港", homeScore: 0, awayScore: 6 },
-            { round: 11, home: "青岛海牛", away: "南通支云", homeScore: 2, awayScore: 2 },
-            { round: 11, home: "成都蓉城", away: "河南队", homeScore: 4, awayScore: 2 },
-            { round: 11, home: "上海海港", away: "长春亚泰", homeScore: 5, awayScore: 2 },
-            { round: 11, home: "天津津门虎", away: "上海申花", homeScore: 0, awayScore: 0 },
-            { round: 11, home: "武汉三镇", away: "山东泰山", homeScore: 1, awayScore: 2 },
-            { round: 11, home: "北京国安", away: "梅州客家", homeScore: 3, awayScore: 2 },
-            { round: 11, home: "沧州雄狮", away: "浙江队", homeScore: 0, awayScore: 1 },
-            { round: 11, home: "深圳新鹏城", away: "青岛西海岸", homeScore: 1, awayScore: 2 },
-            { round: 12, home: "上海申花", away: "青岛海牛", homeScore: 2, awayScore: 0 },
-            { round: 12, home: "山东泰山", away: "深圳新鹏城", homeScore: 3, awayScore: 2 },
-            { round: 12, home: "浙江队", away: "南通支云", homeScore: 5, awayScore: 2 },
-            { round: 12, home: "河南队", away: "武汉三镇", homeScore: 2, awayScore: 3 },
-            { round: 12, home: "沧州雄狮", away: "天津津门虎", homeScore: 2, awayScore: 4 },
-            { round: 12, home: "梅州客家", away: "成都蓉城", homeScore: 1, awayScore: 4 },
-            { round: 12, home: "长春亚泰", away: "北京国安", homeScore: 3, awayScore: 2 },
-            { round: 12, home: "青岛西海岸", away: "上海海港", homeScore: 3, awayScore: 5 },
-            { round: 13, home: "梅州客家", away: "深圳新鹏城", homeScore: 0, awayScore: 0 },
-            { round: 13, home: "河南队", away: "上海申花", homeScore: 1, awayScore: 2 },
-            { round: 13, home: "浙江队", away: "武汉三镇", homeScore: 3, awayScore: 1 },
-            { round: 13, home: "青岛海牛", away: "北京国安", homeScore: 1, awayScore: 1 },
-            { round: 13, home: "天津津门虎", away: "山东泰山", homeScore: 1, awayScore: 1 },
-            { round: 13, home: "南通支云", away: "沧州雄狮", homeScore: 1, awayScore: 1 },
-            { round: 13, home: "青岛西海岸", away: "长春亚泰", homeScore: 2, awayScore: 2 },
-            { round: 13, home: "上海海港", away: "成都蓉城", homeScore: 2, awayScore: 0 },
-            { round: 14, home: "山东泰山", away: "浙江队", homeScore: 3, awayScore: 0 },
-            { round: 14, home: "武汉三镇", away: "梅州客家", homeScore: 0, awayScore: 1 },
-            { round: 14, home: "深圳新鹏城", away: "上海申花", homeScore: 0, awayScore: 1 },
-            { round: 14, home: "北京国安", away: "南通支云", homeScore: 5, awayScore: 2 },
-            { round: 14, home: "青岛海牛", away: "天津津门虎", homeScore: 3, awayScore: 1 },
-            { round: 14, home: "长春亚泰", away: "河南队", homeScore: 0, awayScore: 0 },
-            { round: 14, home: "成都蓉城", away: "青岛西海岸", homeScore: 7, awayScore: 0 },
-            { round: 14, home: "上海海港", away: "沧州雄狮", homeScore: 4, awayScore: 1 },
-            { round: 15, home: "梅州客家", away: "山东泰山", homeScore: 0, awayScore: 0 },
-            { round: 15, home: "天津津门虎", away: "上海海港", homeScore: 0, awayScore: 3 },
-            { round: 15, home: "南通支云", away: "深圳新鹏城", homeScore: 0, awayScore: 1 },
-            { round: 15, home: "浙江队", away: "长春亚泰", homeScore: 3, awayScore: 1 },
-            { round: 15, home: "河南队", away: "北京国安", homeScore: 2, awayScore: 1 },
-            { round: 15, home: "沧州雄狮", away: "青岛海牛", homeScore: 0, awayScore: 1 },
-            { round: 15, home: "上海申花", away: "成都蓉城", homeScore: 1, awayScore: 1 },
-            { round: 15, home: "青岛西海岸", away: "武汉三镇", homeScore: 0, awayScore: 1 },
-            { round: 7, home: "梅州客家", away: "上海海港", homeScore: 1, awayScore: 2 },
-            { round: 16, home: "河南队", away: "青岛西海岸", homeScore: 1, awayScore: 0 },
-            { round: 16, home: "南通支云", away: "天津津门虎", homeScore: 1, awayScore: 1 },
-            { round: 16, home: "深圳新鹏城", away: "浙江队", homeScore: 3, awayScore: 2 },
-            { round: 16, home: "武汉三镇", away: "上海海港", homeScore: 0, awayScore: 2 },
-            { round: 16, home: "上海申花", away: "梅州客家", homeScore: 3, awayScore: 0 },
-            { round: 16, home: "长春亚泰", away: "山东泰山", homeScore: 2, awayScore: 2 },
-            { round: 16, home: "青岛海牛", away: "成都蓉城", homeScore: 1, awayScore: 5 },
-            { round: 16, home: "北京国安", away: "沧州雄狮", homeScore: 4, awayScore: 0 },
-            { round: 17, home: "武汉三镇", away: "南通支云", homeScore: 1, awayScore: 2 },
-            { round: 17, home: "上海海港", away: "浙江队", homeScore: 3, awayScore: 1 },
-            { round: 17, home: "天津津门虎", away: "深圳新鹏城", homeScore: 3, awayScore: 0 },
-            { round: 17, home: "青岛西海岸", away: "上海申花", homeScore: 0, awayScore: 1 },
-            { round: 17, home: "长春亚泰", away: "青岛海牛", homeScore: 5, awayScore: 0 },
-            { round: 17, home: "梅州客家", away: "河南队", homeScore: 0, awayScore: 3 },
-            { round: 17, home: "成都蓉城", away: "沧州雄狮", homeScore: 4, awayScore: 0 },
-            { round: 17, home: "北京国安", away: "山东泰山", homeScore: 2, awayScore: 0 },
-            { round: 18, home: "河南队", away: "上海海港", homeScore: 0, awayScore: 1 },
-            { round: 18, home: "天津津门虎", away: "长春亚泰", homeScore: 2, awayScore: 2 },
-            { round: 18, home: "上海申花", away: "山东泰山", homeScore: 6, awayScore: 0 },
-            { round: 18, home: "沧州雄狮", away: "深圳新鹏城", homeScore: 1, awayScore: 1 },
-            { round: 18, home: "南通支云", away: "成都蓉城", homeScore: 0, awayScore: 1 },
-            { round: 18, home: "北京国安", away: "武汉三镇", homeScore: 1, awayScore: 2 },
-            { round: 18, home: "青岛海牛", away: "青岛西海岸", homeScore: 3, awayScore: 1 },
-            { round: 18, home: "浙江队", away: "梅州客家", homeScore: 4, awayScore: 0 },
-            { round: 19, home: "上海海港", away: "北京国安", homeScore: 5, awayScore: 1 },
-            { round: 19, home: "沧州雄狮", away: "武汉三镇", homeScore: 1, awayScore: 1 },
-            { round: 19, home: "成都蓉城", away: "天津津门虎", homeScore: 2, awayScore: 1 },
-            { round: 19, home: "青岛西海岸", away: "浙江队", homeScore: 5, awayScore: 2 },
-            { round: 19, home: "山东泰山", away: "青岛海牛", homeScore: 1, awayScore: 1 },
-            { round: 19, home: "梅州客家", away: "南通支云", homeScore: 2, awayScore: 1 },
-            { round: 19, home: "上海申花", away: "长春亚泰", homeScore: 3, awayScore: 2 },
-            { round: 19, home: "深圳新鹏城", away: "河南队", homeScore: 0, awayScore: 0 },
-            { round: 24, home: "武汉三镇", away: "成都蓉城", homeScore: 1, awayScore: 1 },
-            { round: 24, home: "青岛西海岸", away: "梅州客家", homeScore: 3, awayScore: 3 },
-            { round: 24, home: "南通支云", away: "山东泰山", homeScore: 0, awayScore: 2 },
-            { round: 24, home: "北京国安", away: "天津津门虎", homeScore: 2, awayScore: 0 },
-            { round: 24, home: "上海海港", away: "青岛海牛", homeScore: 5, awayScore: 0 },
-            { round: 24, home: "河南队", away: "浙江队", homeScore: 2, awayScore: 1 },
-            { round: 24, home: "深圳新鹏城", away: "长春亚泰", homeScore: 2, awayScore: 1 },
-            { round: 24, home: "沧州雄狮", away: "上海申花", homeScore: 0, awayScore: 5 },
-            { round: 20, home: "上海海港", away: "南通支云", homeScore: 8, awayScore: 1 },
-            { round: 20, home: "深圳新鹏城", away: "北京国安", homeScore: 1, awayScore: 0 },
-            { round: 20, home: "长春亚泰", away: "沧州雄狮", homeScore: 1, awayScore: 0 },
-            { round: 20, home: "天津津门虎", away: "青岛西海岸", homeScore: 2, awayScore: 1 },
-            { round: 20, home: "浙江队", away: "成都蓉城", homeScore: 1, awayScore: 3 },
-            { round: 20, home: "青岛海牛", away: "梅州客家", homeScore: 4, awayScore: 2 },
-            { round: 20, home: "河南队", away: "山东泰山", homeScore: 1, awayScore: 0 },
-            { round: 20, home: "武汉三镇", away: "上海申花", homeScore: 0, awayScore: 2 },
-            { round: 21, home: "青岛西海岸", away: "沧州雄狮", homeScore: 1, awayScore: 1 },
-            { round: 21, home: "浙江队", away: "青岛海牛", homeScore: 4, awayScore: 3 },
-            { round: 21, home: "山东泰山", away: "上海海港", homeScore: 0, awayScore: 1 },
-            { round: 21, home: "梅州客家", away: "天津津门虎", homeScore: 3, awayScore: 2 },
-            { round: 21, home: "成都蓉城", away: "长春亚泰", homeScore: 4, awayScore: 0 },
-            { round: 21, home: "武汉三镇", away: "深圳新鹏城", homeScore: 4, awayScore: 1 },
-            { round: 21, home: "北京国安", away: "上海申花", homeScore: 2, awayScore: 1 },
-            { round: 21, home: "南通支云", away: "河南队", homeScore: 1, awayScore: 1 },
-            { round: 22, home: "上海海港", away: "梅州客家", homeScore: 7, awayScore: 2 },
-            { round: 22, home: "沧州雄狮", away: "山东泰山", homeScore: 3, awayScore: 1 },
-            { round: 22, home: "深圳新鹏城", away: "成都蓉城", homeScore: 0, awayScore: 3 },
-            { round: 22, home: "青岛海牛", away: "河南队", homeScore: 0, awayScore: 2 },
-            { round: 22, home: "长春亚泰", away: "武汉三镇", homeScore: 2, awayScore: 0 },
-            { round: 22, home: "上海申花", away: "南通支云", homeScore: 5, awayScore: 1 },
-            { round: 22, home: "青岛西海岸", away: "北京国安", homeScore: 2, awayScore: 2 },
-            { round: 22, home: "天津津门虎", away: "浙江队", homeScore: 3, awayScore: 2 },
-            { round: 23, home: "河南队", away: "沧州雄狮", homeScore: 0, awayScore: 2 },
-            { round: 23, home: "天津津门虎", away: "武汉三镇", homeScore: 1, awayScore: 0 },
-            { round: 23, home: "北京国安", away: "浙江队", homeScore: 0, awayScore: 0 },
-            { round: 23, home: "南通支云", away: "青岛西海岸", homeScore: 0, awayScore: 3 },
-            { round: 23, home: "青岛海牛", away: "深圳新鹏城", homeScore: 1, awayScore: 0 },
-            { round: 23, home: "上海申花", away: "上海海港", homeScore: 3, awayScore: 1 },
-            { round: 23, home: "梅州客家", away: "长春亚泰", homeScore: 2, awayScore: 1 },
-            { round: 23, home: "山东泰山", away: "成都蓉城", homeScore: 3, awayScore: 0 },
-            { round: 25, home: "上海海港", away: "深圳新鹏城", homeScore: 2, awayScore: 0 },
-            { round: 25, home: "浙江队", away: "上海申花", homeScore: 3, awayScore: 4 },
-            { round: 25, home: "山东泰山", away: "青岛西海岸", homeScore: 0, awayScore: 1 },
-            { round: 25, home: "长春亚泰", away: "南通支云", homeScore: 3, awayScore: 2 },
-            { round: 25, home: "天津津门虎", away: "河南队", homeScore: 1, awayScore: 0 },
-            { round: 25, home: "成都蓉城", away: "北京国安", homeScore: 2, awayScore: 2 },
-            { round: 25, home: "沧州雄狮", away: "梅州客家", homeScore: 2, awayScore: 1 },
-            { round: 25, home: "青岛海牛", away: "武汉三镇", homeScore: 1, awayScore: 1 },
-            { round: 26, home: "梅州客家", away: "北京国安", homeScore: 1, awayScore: 3 },
-            { round: 26, home: "长春亚泰", away: "上海海港", homeScore: 3, awayScore: 4 },
-            { round: 26, home: "河南队", away: "成都蓉城", homeScore: 2, awayScore: 0 },
-            { round: 26, home: "山东泰山", away: "武汉三镇", homeScore: 0, awayScore: 0 },
-            { round: 26, home: "上海申花", away: "天津津门虎", homeScore: 2, awayScore: 1 },
-            { round: 26, home: "青岛西海岸", away: "深圳新鹏城", homeScore: 3, awayScore: 2 },
-            { round: 26, home: "南通支云", away: "青岛海牛", homeScore: 2, awayScore: 1 },
-            { round: 26, home: "浙江队", away: "沧州雄狮", homeScore: 2, awayScore: 2 },
-            { round: 27, home: "青岛海牛", away: "上海申花", homeScore: 0, awayScore: 1 },
-            { round: 27, home: "上海海港", away: "青岛西海岸", homeScore: 2, awayScore: 1 },
-            { round: 27, home: "北京国安", away: "长春亚泰", homeScore: 8, awayScore: 1 },
-            { round: 27, home: "南通支云", away: "浙江队", homeScore: 3, awayScore: 2 },
-            { round: 27, home: "深圳新鹏城", away: "山东泰山", homeScore: 1, awayScore: 4 },
-            { round: 27, home: "天津津门虎", away: "沧州雄狮", homeScore: 3, awayScore: 2 },
-            { round: 27, home: "成都蓉城", away: "梅州客家", homeScore: 2, awayScore: 0 },
-            { round: 27, home: "武汉三镇", away: "河南队", homeScore: 1, awayScore: 0 },
-            { round: 28, home: "上海申花", away: "河南队", homeScore: 2, awayScore: 1 },
-            { round: 28, home: "山东泰山", away: "天津津门虎", homeScore: 4, awayScore: 1 },
-            { round: 28, home: "武汉三镇", away: "浙江队", homeScore: 0, awayScore: 2 },
-            { round: 28, home: "成都蓉城", away: "上海海港", homeScore: 3, awayScore: 1 },
-            { round: 28, home: "长春亚泰", away: "青岛西海岸", homeScore: 4, awayScore: 0 },
-            { round: 28, home: "北京国安", away: "青岛海牛", homeScore: 6, awayScore: 0 },
-            { round: 28, home: "沧州雄狮", away: "南通支云", homeScore: 0, awayScore: 0 },
-            { round: 28, home: "深圳新鹏城", away: "梅州客家", homeScore: 0, awayScore: 0 },
-            { round: 29, home: "上海申花", away: "深圳新鹏城", homeScore: 2, awayScore: 2 },
-            { round: 29, home: "天津津门虎", away: "青岛海牛", homeScore: 1, awayScore: 0 },
-            { round: 29, home: "河南队", away: "长春亚泰", homeScore: 0, awayScore: 0 },
-            { round: 29, home: "浙江队", away: "山东泰山", homeScore: 3, awayScore: 3 },
-            { round: 29, home: "沧州雄狮", away: "上海海港", homeScore: 0, awayScore: 1 },
-            { round: 29, home: "梅州客家", away: "武汉三镇", homeScore: 1, awayScore: 0 },
-            { round: 29, home: "南通支云", away: "北京国安", homeScore: 1, awayScore: 3 },
-            { round: 29, home: "青岛西海岸", away: "成都蓉城", homeScore: 1, awayScore: 1 },
-            { round: 30, home: "北京国安", away: "河南队", homeScore: 1, awayScore: 1 },
-            { round: 30, home: "长春亚泰", away: "浙江队", homeScore: 2, awayScore: 2 },
-            { round: 30, home: "上海海港", away: "天津津门虎", homeScore: 5, awayScore: 0 },
-            { round: 30, home: "山东泰山", away: "梅州客家", homeScore: 2, awayScore: 1 },
-            { round: 30, home: "青岛海牛", away: "沧州雄狮", homeScore: 1, awayScore: 0 },
-            { round: 30, home: "成都蓉城", away: "上海申花", homeScore: 1, awayScore: 2 },
-            { round: 30, home: "深圳新鹏城", away: "南通支云", homeScore: 2, awayScore: 1 },
-            { round: 30, home: "武汉三镇", away: "青岛西海岸", homeScore: 1, awayScore: 3 },
-        ],
-    };
-
-// === 新增：数据清洗逻辑（统一队名） ===
+    // === 5. 数据清洗逻辑 ===
     function cleanTeamNames() {
-        // 遍历所有赛季的每一场比赛
         for (let season in allSeasonsData) {
             allSeasonsData[season].forEach(m => {
-                // 如果发现主队是“河南”或“浙江”，自动加上“队”字
                 if (m.home === "河南") m.home = "河南队";
                 if (m.home === "浙江") m.home = "浙江队";
-                
-                // 对客队做同样的检查
                 if (m.away === "河南") m.away = "河南队";
                 if (m.away === "浙江") m.away = "浙江队";
             });
         }
     }
 
-
-    // 这是一个变量，用来存放“当前选中的赛季的比赛数据”
-    let currentMatches = [];
-
-    // === 2. 核心逻辑：计算积分榜 (使用 currentMatches) ===
+    // === 6. 计算积分榜逻辑 (保持之前的严谨算法不变) ===
     function calculateStandings(targetRound) {
         let teams = {};
         let validMatches = currentMatches.filter(m => m.round <= targetRound);
@@ -692,42 +138,28 @@
 
         let standings = Object.values(teams);
         standings.forEach(t => t.gd = t.gf - t.ga);
-	standings.sort((a, b) => {
-            // 1. 如果积分不同，积分高的排前面
+        standings.sort((a, b) => {
             if (b.pts !== a.pts) return b.pts - a.pts;
-
-            // 2. 如果积分相同，找出这两支球队之间的所有交锋记录
             let mutualMatches = validMatches.filter(m => 
                 (m.home === a.name && m.away === b.name) || 
                 (m.home === b.name && m.away === a.name)
             );
-
-            // 3. 只有当他们在这个赛季的两次交锋全部打完后（也就是赛季末），才启用相互战绩规则
             if (mutualMatches.length === 2) {
-                let aMutualPts = 0, bMutualPts = 0;
-                let aMutualGD = 0, bMutualGD = 0;
-                let aMutualGF = 0, bMutualGF = 0;
-
+                let aMutualPts = 0, bMutualPts = 0, aMutualGD = 0, bMutualGD = 0, aMutualGF = 0, bMutualGF = 0;
                 mutualMatches.forEach(m => {
                     let aIsHome = m.home === a.name;
                     let aScore = aIsHome ? m.homeScore : m.awayScore;
                     let bScore = aIsHome ? m.awayScore : m.homeScore;
-
                     aMutualGF += aScore; bMutualGF += bScore;
                     aMutualGD += (aScore - bScore); bMutualGD += (bScore - aScore);
-
                     if (aScore > bScore) aMutualPts += 3;
                     else if (aScore < bScore) bMutualPts += 3;
                     else { aMutualPts += 1; bMutualPts += 1; }
                 });
-
-                // 依次比较：相互积分 -> 相互净胜球 -> 相互进球
                 if (bMutualPts !== aMutualPts) return bMutualPts - aMutualPts;
                 if (bMutualGD !== aMutualGD) return bMutualGD - aMutualGD;
                 if (bMutualGF !== aMutualGF) return bMutualGF - aMutualGF;
             }
-
-            // 4. 如果相互交锋还没打完（赛季中），或者相互战绩完全一样，回归常规规则：总净胜 -> 总进球
             if (b.gd !== a.gd) return b.gd - a.gd;
             return b.gf - a.gf;
         });
@@ -751,43 +183,42 @@
         return history;
     }
 
-    // === 3. 下拉框初始化与联动 ===
-    // 初始化赛季下拉框
+    // === 7. 页面联动组件 ===
     function initSeasonSelect() {
         let seasonSelect = document.getElementById("seasonSelect");
+        seasonSelect.innerHTML = ""; // 清空旧的赛季选项
+        
         for (let season in allSeasonsData) {
             let option = document.createElement("option");
             option.value = season; option.text = season;
             seasonSelect.appendChild(option);
         }
-        // 触发第一次的赛季切换逻辑
-        changeSeason();
+        // 如果该联赛有数据，触发赛季切换
+        if(Object.keys(allSeasonsData).length > 0) {
+            changeSeason();
+        } else {
+            // 如果没数据，清空下方的表和图
+            currentMatches = [];
+            updateSubSelects();
+            renderTable();
+            if(myChart) myChart.clear();
+        }
     }
 
-    // 当用户切换赛季时执行的逻辑
     function changeSeason() {
         let selectedSeason = document.getElementById("seasonSelect").value;
-        // 把当前赛季的数据抽出来赋值给 currentMatches
         currentMatches = allSeasonsData[selectedSeason] || [];
-        
-        // 既然赛季变了，轮次和球队也要重新计算
         updateSubSelects();
-        
-        // 重新渲染表格和图表
         renderTable();
         renderChart();
     }
 
-    // 更新轮次和球队下拉框
     function updateSubSelects() {
         let roundSelect = document.getElementById("roundSelect");
         let teamSelect = document.getElementById("teamSelect");
-        
-        // 清空旧的选项
         roundSelect.innerHTML = "";
         teamSelect.innerHTML = "";
 
-        // 如果这个赛季没数据，就直接返回
         if (currentMatches.length === 0) return;
 
         let maxRound = Math.max(...currentMatches.map(m => m.round));
@@ -796,7 +227,7 @@
             option.value = i; option.text = `第 ${i} 轮`;
             roundSelect.appendChild(option);
         }
-        roundSelect.value = maxRound; // 默认最新一轮
+        roundSelect.value = maxRound;
 
         let allTeams = getAllTeams();
         allTeams.forEach(team => {
@@ -806,13 +237,13 @@
         });
     }
 
-    // === 4. 渲染页面内容 ===
     function renderTable() {
-        if (currentMatches.length === 0) return;
-        let targetRound = parseInt(document.getElementById("roundSelect").value);
-        let data = calculateStandings(targetRound);
         let tbody = document.getElementById("tableBody");
         tbody.innerHTML = ""; 
+        if (currentMatches.length === 0) return;
+
+        let targetRound = parseInt(document.getElementById("roundSelect").value);
+        let data = calculateStandings(targetRound);
 
         data.forEach((team, index) => {
             let tr = document.createElement("tr");
@@ -859,17 +290,13 @@
                 lineStyle: { width: 3 }
             }]
         };
-        // 使用 true 参数，表示如果数据发生大变化（比如换赛季了），强制覆盖旧图表
         myChart.setOption(option, true);
     }
 
-// 网页加载完成后执行
+    // === 8. 网页启动入口 ===
     window.onload = () => {
-        // 1. 网页一加载，先进行数据清洗，统一所有队名
-        cleanTeamNames(); 
-        
-        // 2. 然后再初始化赛季选项（引发后续的画表和画图）
-        initSeasonSelect();
+        // 网页一加载，直接触发“切换联赛”逻辑，默认加载中超数据
+        changeLeague(); 
     };
 </script>
 </body>
