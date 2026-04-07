@@ -40,6 +40,11 @@
             /* 手机上隐藏一些不那么重要的列，节省空间 */
             .hide-on-mobile { display: none; }
         }
+
+        table td:nth-child(3) {
+            color: #e3001b; /* 让积分显示为红色，更醒目 */
+            font-size: 15px;
+        }
     </style>
 </head>
 <body>
@@ -80,6 +85,7 @@
                 <tr>
                     <th>排名</th>
                     <th>球队</th>
+                    <th>积分</th>
                     <th>场次</th>
                     <th>胜</th>
                     <th>平</th>
@@ -87,7 +93,6 @@
                     <th class="hide-on-mobile">进球</th> 
                     <th class="hide-on-mobile">失球</th>
                     <th>净胜</th>
-                    <th>积分</th>
                 </tr>
             </thead>
             <tbody id="tableBody"></tbody>
@@ -283,12 +288,13 @@
             tr.innerHTML = `
                 <td>${index + 1}</td>
                 <td><strong>${team.name}</strong></td>
-                <td>${team.played}</td>
+                <td style="background-color: #fff9db; font-weight: bold;">${team.pts}</td> <td>${team.played}</td>
                 <td>${team.win}</td>
                 <td>${team.draw}</td>
                 <td>${team.loss}</td>
-                <td class="hide-on-mobile">${team.gf}</td> <td class="hide-on-mobile">${team.ga}</td> <td>${team.gd}</td>
-                <td><strong>${team.pts}</strong></td>
+                <td class="hide-on-mobile">${team.gf}</td>
+                <td class="hide-on-mobile">${team.ga}</td>
+                <td>${team.gd}</td>
             `;
             tbody.appendChild(tr);
         });
