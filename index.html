@@ -12,38 +12,33 @@
 
     <style>
         body { font-family: 'Microsoft YaHei', sans-serif; padding: 10px; background-color: #f4f4f9; margin: 0; }
-        /* 容器宽度改为百分比适配，最大 900px */
         .container { width: 95%; max-width: 900px; margin: 10px auto; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); box-sizing: border-box; }
         
         h1 { text-align: center; color: #333; font-size: 1.5rem; margin-bottom: 5px; }
+        h2 { font-size: 1.1rem; color: #444; border-left: 4px solid #004b87; padding-left: 10px; margin-top: 0; margin-bottom: 10px; }
         .subtitle { text-align: center; color: #666; font-size: 0.85rem; margin-bottom: 15px; }
         
         .controls { text-align: center; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px; }
-        /* 让下拉框在手机上更宽，更好点 */
-        .controls select { padding: 8px; font-size: 14px; border-radius: 5px; border: 1px solid #ccc; margin: 5px; width: auto; min-width: 120px; }
+        .controls select { padding: 8px; font-size: 14px; border-radius: 5px; border: 1px solid #ccc; margin: 5px; min-width: 120px; }
 
-        /* --- 关键：解决表格在手机上溢出的问题 --- */
-        .table-wrapper { width: 100%; overflow-x: auto; /* 开启水平滚动 */ -webkit-overflow-scrolling: touch; }
-        table { width: 100%; border-collapse: collapse; min-width: 600px; /* 保证表格内容不被挤扁 */ }
+        /* 表格响应式 */
+        .table-wrapper { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        table { width: 100%; border-collapse: collapse; min-width: 600px; }
         th, td { border-bottom: 1px solid #ddd; padding: 10px 5px; text-align: center; font-size: 13px; }
         th { background-color: #004b87; color: white; white-space: nowrap; }
+        
+        /* 积分列高亮 */
+        table td:nth-child(3) { color: #e3001b; font-weight: bold; background-color: #fff9db; }
 
-        #trendChart { width: 100%; height: 350px; margin-top: 10px; }
+        #trendChart, #radarChart { width: 100%; height: 400px; margin-top: 10px; }
 
-        /* --- 手机端专项优化 --- */
+        .checkbox-group { text-align: left; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; padding: 10px; }
+        .checkbox-group label { font-size: 13px; cursor: pointer; background: #fff; padding: 3px 8px; border-radius: 4px; border: 1px solid #ddd; }
+
         @media (max-width: 600px) {
-            body { padding: 5px; }
-            .container { padding: 10px; }
-            h1 { font-size: 1.2rem; }
-            .controls select { width: 90%; display: block; margin: 10px auto; } /* 下拉框在手机上堆叠显示 */
-            
-            /* 手机上隐藏一些不那么重要的列，节省空间 */
+            .controls select { width: 90%; display: block; margin: 10px auto; }
             .hide-on-mobile { display: none; }
-        }
-
-        table td:nth-child(3) {
-            color: #e3001b; /* 让积分显示为红色，更醒目 */
-            font-size: 15px;
+            #trendChart, #radarChart { height: 300px; }
         }
     </style>
 </head>
@@ -51,48 +46,40 @@
 
 <div class="container">
     <h1>足球联赛数据查询系统</h1>
-    <div class="subtitle">支持多联赛、多赛季、按轮次查询积分榜与排名走势</div>
+    <div class="subtitle">支持多联赛、多赛季、排名走势与主客场深度画像</div>
     
     <div class="controls" style="background-color: #e2e8f0; border: 1px solid #cbd5e1;">
-        <label for="leagueSelect" style="margin-left: 0;"><strong>选择联赛：</strong></label>
+        <label><strong>⚽ 选择联赛：</strong></label>
         <select id="leagueSelect" onchange="changeLeague()">
             <option value="csl">中超联赛</option>
-	    <option value="epl">英超联赛</option>
+            <option value="epl">英超联赛</option>
             <option value="bundesliga">德甲联赛</option>
-            </select>
+        </select>
 
-        <label for="seasonSelect"><strong>选择赛季：</strong></label>
+        <label><strong>🏆 选择赛季：</strong></label>
         <select id="seasonSelect" onchange="changeSeason()"></select>
     </div>
 </div>
 
 <div class="container">
-    <h1>球队排名走势对比</h1>
-    <div class="subtitle">最多选择 5 支球队进行对比</div>
-    <div class="controls" id="teamCheckboxes" style="text-align: left; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;">
-        </div>
-    <div id="trendChart"></div>
-</div>
-
-<div class="container">
+    <h2>📊 实时积分榜查询</h2>
     <div class="controls">
-        <label for="roundSelect"><strong>📊 选择截止轮次：</strong></label>
+        <label><strong>📋 榜单类型：</strong></label>
+        <select id="standingsTypeSelect" onchange="renderTable()">
+            <option value="total">总积分榜</option>
+            <option value="home">主场战绩</option>
+            <option value="away">客场战绩</option>
+        </select>
+
+        <label><strong>📅 选择轮次：</strong></label>
         <select id="roundSelect" onchange="renderTable()"></select>
     </div>
     <div class="table-wrapper">
         <table>
             <thead>
                 <tr>
-                    <th>排名</th>
-                    <th>球队</th>
-                    <th>积分</th>
-                    <th>场次</th>
-                    <th>胜</th>
-                    <th>平</th>
-                    <th>负</th>
-                    <th class="hide-on-mobile">进球</th> 
-                    <th class="hide-on-mobile">失球</th>
-                    <th>净胜</th>
+                    <th>排名</th><th>球队</th><th>积分</th><th>场次</th><th>胜</th><th>平</th><th>负</th>
+                    <th class="hide-on-mobile">进球</th><th class="hide-on-mobile">失球</th><th>净胜</th>
                 </tr>
             </thead>
             <tbody id="tableBody"></tbody>
@@ -100,42 +87,44 @@
     </div>
 </div>
 
+<div class="container">
+    <h2>📈 球队排名走势对比</h2>
+    <div class="subtitle">最多选择 5 支球队进行对比</div>
+    <div class="checkbox-group" id="teamCheckboxes"></div>
+    <div id="trendChart"></div>
+</div>
+
+<div class="container">
+    <h2>🎯 球队表现深度画像</h2>
+    <div class="subtitle">对比分析球队在主场与客场的多维表现差异</div>
+    <div class="controls">
+        <label><strong>🔍 选择分析球队：</strong></label>
+        <select id="radarTeamSelect" onchange="renderRadar(this.value)"></select>
+    </div>
+    <div id="radarChart"></div>
+</div>
+
 <script>
-    // === 4. 核心数据调度逻辑 ===
-    
-    // 用来存放目前正在查看的【整个联赛】的数据
     let allSeasonsData = {}; 
-    // 用来存放目前正在查看的【某个赛季】的比赛
     let currentMatches = [];
+    let myChart = null;
+    let radarChart = null;
+    const colors = ['#e3001b', '#004b87', '#28a745', '#ffc107', '#6f42c1'];
 
-    // 当用户切换联赛时执行
+    // 1. 联赛切换
     function changeLeague() {
-        let selectedLeague = document.getElementById("leagueSelect").value;
-        
-        // 根据用户的选择，把对应的外部数据包“装载”进来
-        if (selectedLeague === "csl") {
-            // 这里判断一下 cslData 是否存在，防止外部 js 文件没加载成功报错
-            allSeasonsData = typeof cslData !== 'undefined' ? cslData : {};
-        } 
-        //以后加上英超的数据包可以这么写：
-        else if (selectedLeague === "epl") {
-            allSeasonsData = typeof eplData !== 'undefined' ? eplData : {};
-        }
-        //以后加上德甲的数据包可以这么写：
-        else if (selectedLeague === "bundesliga") {
-            allSeasonsData = typeof bundesligaData !== 'undefined' ? bundesligaData : {};
-        }
+        let val = document.getElementById("leagueSelect").value;
+        if (val === "csl") allSeasonsData = typeof cslData !== 'undefined' ? cslData : {};
+        else if (val === "epl") allSeasonsData = typeof eplData !== 'undefined' ? eplData : {};
+        else if (val === "bundesliga") allSeasonsData = typeof bundesligaData !== 'undefined' ? bundesligaData : {};
 
-        // 数据装载完毕后，清洗队名
         cleanTeamNames();
-        // 重新生成赛季的下拉框
         initSeasonSelect();
     }
 
-    // === 5. 数据清洗逻辑 ===
     function cleanTeamNames() {
-        for (let season in allSeasonsData) {
-            allSeasonsData[season].forEach(m => {
+        for (let s in allSeasonsData) {
+            allSeasonsData[s].forEach(m => {
                 if (m.home === "河南") m.home = "河南队";
                 if (m.home === "浙江") m.home = "浙江队";
                 if (m.away === "河南") m.away = "河南队";
@@ -144,8 +133,8 @@
         }
     }
 
-    // === 6. 计算积分榜逻辑 (保持之前的严谨算法不变) ===
-    function calculateStandings(targetRound) {
+    // 2. 积分计算逻辑
+    function calculateStandings(targetRound, mode = 'total') {
         let teams = {};
         let validMatches = currentMatches.filter(m => m.round <= targetRound);
 
@@ -153,48 +142,40 @@
             if (!teams[m.home]) teams[m.home] = { name: m.home, played: 0, win: 0, draw: 0, loss: 0, gf: 0, ga: 0, gd: 0, pts: 0 };
             if (!teams[m.away]) teams[m.away] = { name: m.away, played: 0, win: 0, draw: 0, loss: 0, gf: 0, ga: 0, gd: 0, pts: 0 };
 
-            let homeTeam = teams[m.home];
-            let awayTeam = teams[m.away];
-
-            homeTeam.played++; awayTeam.played++;
-            homeTeam.gf += m.homeScore; awayTeam.gf += m.awayScore;
-            homeTeam.ga += m.awayScore; awayTeam.ga += m.homeScore;
-
-            if (m.homeScore > m.awayScore) {
-                homeTeam.win++; awayTeam.loss++; homeTeam.pts += 3;
-            } else if (m.homeScore < m.awayScore) {
-                homeTeam.loss++; awayTeam.win++; awayTeam.pts += 3;
-            } else {
-                homeTeam.draw++; awayTeam.draw++; homeTeam.pts += 1; awayTeam.pts += 1;
+            if (mode === 'total' || mode === 'home') {
+                let t = teams[m.home]; t.played++; t.gf += m.homeScore; t.ga += m.awayScore;
+                if (m.homeScore > m.awayScore) { t.win++; t.pts += 3; }
+                else if (m.homeScore < m.awayScore) { t.loss++; }
+                else { t.draw++; t.pts += 1; }
+            }
+            if (mode === 'total' || mode === 'away') {
+                let t = teams[m.away]; t.played++; t.gf += m.awayScore; t.ga += m.homeScore;
+                if (m.awayScore > m.homeScore) { t.win++; t.pts += 3; }
+                else if (m.awayScore < m.homeScore) { t.loss++; }
+                else { t.draw++; t.pts += 1; }
             }
         });
 
-        let standings = Object.values(teams);
+        let standings = Object.values(teams).filter(t => t.played > 0);
         standings.forEach(t => t.gd = t.gf - t.ga);
+
         standings.sort((a, b) => {
             if (b.pts !== a.pts) return b.pts - a.pts;
-            let mutualMatches = validMatches.filter(m => 
-                (m.home === a.name && m.away === b.name) || 
-                (m.home === b.name && m.away === a.name)
-            );
-            if (mutualMatches.length === 2) {
-                let aMutualPts = 0, bMutualPts = 0, aMutualGD = 0, bMutualGD = 0, aMutualGF = 0, bMutualGF = 0;
-                mutualMatches.forEach(m => {
-                    let aIsHome = m.home === a.name;
-                    let aScore = aIsHome ? m.homeScore : m.awayScore;
-                    let bScore = aIsHome ? m.awayScore : m.homeScore;
-                    aMutualGF += aScore; bMutualGF += bScore;
-                    aMutualGD += (aScore - bScore); bMutualGD += (bScore - aScore);
-                    if (aScore > bScore) aMutualPts += 3;
-                    else if (aScore < bScore) bMutualPts += 3;
-                    else { aMutualPts += 1; bMutualPts += 1; }
-                });
-                if (bMutualPts !== aMutualPts) return bMutualPts - aMutualPts;
-                if (bMutualGD !== aMutualGD) return bMutualGD - aMutualGD;
-                if (bMutualGF !== aMutualGF) return bMutualGF - aMutualGF;
+            if (mode === 'total') {
+                let mutual = validMatches.filter(m => (m.home === a.name && m.away === b.name) || (m.home === b.name && m.away === a.name));
+                if (mutual.length === 2) {
+                    let ap=0, bp=0, agd=0, bgd=0;
+                    mutual.forEach(m => {
+                        let aIsH = m.home === a.name;
+                        let as = aIsH ? m.homeScore : m.awayScore, bs = aIsH ? m.awayScore : m.homeScore;
+                        agd += (as-bs); bgd += (bs-as);
+                        if (as > bs) ap += 3; else if (as < bs) bp += 3; else { ap+=1; bp+=1; }
+                    });
+                    if (bp !== ap) return bp - ap;
+                    if (bgd !== agd) return bgd - agd;
+                }
             }
-            if (b.gd !== a.gd) return b.gd - a.gd;
-            return b.gf - a.gf;
+            return (b.gd !== a.gd) ? b.gd - a.gd : b.gf - a.gf;
         });
         return standings;
     }
@@ -202,173 +183,156 @@
     function getAllTeams() {
         let teams = new Set();
         currentMatches.forEach(m => { teams.add(m.home); teams.add(m.away); });
-        return Array.from(teams);
+        return Array.from(teams).sort();
     }
 
     function getTeamRankHistory(teamName) {
-        let maxRound = currentMatches.length > 0 ? Math.max(...currentMatches.map(m => m.round)) : 0;
+        let maxR = currentMatches.length > 0 ? Math.max(...currentMatches.map(m => m.round)) : 0;
         let history = [];
-        for (let i = 1; i <= maxRound; i++) {
-            let standings = calculateStandings(i);
-            let index = standings.findIndex(t => t.name === teamName);
-            if (index !== -1) history.push(index + 1);
+        for (let i = 1; i <= maxR; i++) {
+            let s = calculateStandings(i);
+            let idx = s.findIndex(t => t.name === teamName);
+            if (idx !== -1) history.push(idx + 1);
         }
         return history;
     }
 
-    // === 7. 页面联动组件 ===
+    // 3. 页面联动
     function initSeasonSelect() {
-        let seasonSelect = document.getElementById("seasonSelect");
-        seasonSelect.innerHTML = ""; // 清空旧的赛季选项
-        
-        for (let season in allSeasonsData) {
-            let option = document.createElement("option");
-            option.value = season; option.text = season;
-            seasonSelect.appendChild(option);
+        let ss = document.getElementById("seasonSelect");
+        ss.innerHTML = "";
+        for (let s in allSeasonsData) {
+            let opt = document.createElement("option");
+            opt.value = s; opt.text = s;
+            ss.appendChild(opt);
         }
-        // 如果该联赛有数据，触发赛季切换
-        if(Object.keys(allSeasonsData).length > 0) {
-            changeSeason();
-        } else {
-            // 如果没数据，清空下方的表和图
-            currentMatches = [];
-            updateSubSelects();
-            renderTable();
-            if(myChart) myChart.clear();
-        }
+        if(Object.keys(allSeasonsData).length > 0) changeSeason();
     }
 
     function changeSeason() {
-        let selectedSeason = document.getElementById("seasonSelect").value;
-        currentMatches = allSeasonsData[selectedSeason] || [];
+        let s = document.getElementById("seasonSelect").value;
+        currentMatches = allSeasonsData[s] || [];
         updateSubSelects();
         renderTable();
         renderChart();
     }
 
     function updateSubSelects() {
-    let roundSelect = document.getElementById("roundSelect");
-    let checkboxContainer = document.getElementById("teamCheckboxes");
-    
-    roundSelect.innerHTML = "";
-    checkboxContainer.innerHTML = ""; // 清空旧的勾选框
+        let rs = document.getElementById("roundSelect");
+        let tc = document.getElementById("teamCheckboxes");
+        let rts = document.getElementById("radarTeamSelect");
 
-    if (currentMatches.length === 0) return;
+        rs.innerHTML = ""; tc.innerHTML = ""; rts.innerHTML = "";
+        if (currentMatches.length === 0) return;
 
-    // 更新轮次下拉框
-    let maxRound = Math.max(...currentMatches.map(m => m.round));
-    for (let i = 1; i <= maxRound; i++) {
-        let option = document.createElement("option");
-        option.value = i; option.text = `第 ${i} 轮`;
-        roundSelect.appendChild(option);
+        let maxR = Math.max(...currentMatches.map(m => m.round));
+        for (let i = 1; i <= maxR; i++) {
+            let opt = document.createElement("option"); opt.value = i; opt.text = `第 ${i} 轮`;
+            rs.appendChild(opt);
+        }
+        rs.value = maxR;
+
+        let teams = getAllTeams();
+        teams.forEach(t => {
+            let lbl = document.createElement("label");
+            lbl.innerHTML = `<input type="checkbox" name="teamCheck" value="${t}" onchange="limitAndRender(this)"> ${t}`;
+            tc.appendChild(lbl);
+            let opt = document.createElement("option"); opt.value = t; opt.text = t;
+            rts.appendChild(opt);
+        });
+        if(teams.length > 0) renderRadar(teams[0]);
     }
-    roundSelect.value = maxRound;
 
-    // 动态生成球队勾选框
-    let allTeams = getAllTeams();
-    allTeams.forEach(team => {
-        let label = document.createElement("label");
-        label.style.marginRight = "10px";
-        label.style.cursor = "pointer";
-        label.innerHTML = `<input type="checkbox" name="teamCheck" value="${team}" onchange="limitAndRender(this)"> ${team}`;
-        checkboxContainer.appendChild(label);
-    });
-}
+    function limitAndRender(cb) {
+        let checked = document.querySelectorAll('input[name="teamCheck"]:checked');
+        if (checked.length > 5) {
+            alert("最多选择 5 支球队进行对比！");
+            cb.checked = false; return;
+        }
+        renderChart();
+    }
+
+    // 4. 图表渲染
+    function renderChart() {
+        if (currentMatches.length === 0) return;
+        let selected = Array.from(document.querySelectorAll('input[name="teamCheck"]:checked')).map(cb => cb.value);
+        if (selected.length === 0) { if (myChart) myChart.clear(); return; }
+
+        let maxR = Math.max(...currentMatches.map(m => m.round));
+        let xData = []; for(let i=1; i<=maxR; i++) xData.push(`第${i}轮`);
+
+        let seriesData = selected.map((t, i) => ({
+            name: t, data: getTeamRankHistory(t), type: 'line', smooth: true,
+            itemStyle: { color: colors[i % colors.length] }, lineStyle: { width: 3 }
+        }));
+
+        if (!myChart) myChart = echarts.init(document.getElementById('trendChart'));
+        myChart.setOption({
+            tooltip: { trigger: 'axis' }, legend: { data: selected, bottom: 0 },
+            grid: { left: '3%', right: '4%', bottom: '15%', top: '5%', containLabel: true },
+            xAxis: { type: 'category', data: xData, boundaryGap: false },
+            yAxis: { type: 'value', inverse: true, min: 1, max: getAllTeams().length, minInterval: 1 },
+            series: seriesData
+        }, true);
+    }
+
+    function renderRadar(teamName) {
+        if (!teamName || currentMatches.length === 0) return;
+        let round = parseInt(document.getElementById("roundSelect").value);
+        let h = calculateStandings(round, 'home').find(t => t.name === teamName);
+        let a = calculateStandings(round, 'away').find(t => t.name === teamName);
+        if (!h || !a) return;
+
+        const getM = (d) => [
+            (d.gf / d.played).toFixed(2), 
+            Math.max(0, (3 - d.ga / d.played)).toFixed(2), 
+            (d.pts / d.played).toFixed(2), 
+            ((d.win / d.played) * 100).toFixed(1), 
+            (d.gd / d.played).toFixed(2)
+        ];
+
+        if (!radarChart) radarChart = echarts.init(document.getElementById('radarChart'));
+        radarChart.setOption({
+            title: { text: `${teamName} 主客场表现对比`, left: 'center' },
+            tooltip: { trigger: 'item' }, legend: { data: ['主场', '客场'], bottom: 0 },
+            radar: {
+                indicator: [
+                    { name: '进攻(均进球)', max: 4, min: 0 }, { name: '防守(均失球反向)', max: 4, min: 0 },
+                    { name: '效率(均积分)', max: 3, min: 0 }, { name: '胜率(%)', max: 100, min: 0 },
+                    { name: '稳定性(均净胜)', max: 4, min: -4 }
+                ],
+                center: ['50%', '50%'], radius: '60%'
+            },
+            series: [{
+                type: 'radar',
+                data: [
+                    { value: getM(h), name: '主场', itemStyle: { color: '#e3001b' }, areaStyle: { opacity: 0.3 } },
+                    { value: getM(a), name: '客场', itemStyle: { color: '#004b87' }, areaStyle: { opacity: 0.3 } }
+                ]
+            }]
+        }, true);
+    }
 
     function renderTable() {
         let tbody = document.getElementById("tableBody");
-        tbody.innerHTML = ""; 
-        if (currentMatches.length === 0) return;
+        tbody.innerHTML = ""; if (currentMatches.length === 0) return;
+        let r = parseInt(document.getElementById("roundSelect").value);
+        let mode = document.getElementById("standingsTypeSelect").value;
+        let data = calculateStandings(r, mode);
 
-        let targetRound = parseInt(document.getElementById("roundSelect").value);
-        let data = calculateStandings(targetRound);
-
-        data.forEach((team, index) => {
+        data.forEach((t, i) => {
             let tr = document.createElement("tr");
             tr.innerHTML = `
-                <td>${index + 1}</td>
-                <td><strong>${team.name}</strong></td>
-                <td style="background-color: #fff9db; font-weight: bold;">${team.pts}</td> <td>${team.played}</td>
-                <td>${team.win}</td>
-                <td>${team.draw}</td>
-                <td>${team.loss}</td>
-                <td class="hide-on-mobile">${team.gf}</td>
-                <td class="hide-on-mobile">${team.ga}</td>
-                <td>${team.gd}</td>
+                <td>${i + 1}</td><td><strong>${t.name}</strong></td>
+                <td>${t.pts}</td><td>${t.played}</td><td>${t.win}</td><td>${t.draw}</td><td>${t.loss}</td>
+                <td class="hide-on-mobile">${t.gf}</td><td class="hide-on-mobile">${t.ga}</td><td>${t.gd}</td>
             `;
             tbody.appendChild(tr);
         });
     }
 
-    let myChart = null;
-    const colors = ['#e3001b', '#004b87', '#28a745', '#ffc107', '#6f42c1']; // 预设颜色
-
-    function limitAndRender(checkbox) {
-        let checked = document.querySelectorAll('input[name="teamCheck"]:checked');
-        if (checked.length > 5) {
-            alert("最多只能选择 5 支球队进行比较哦！");
-            checkbox.checked = false;
-            return;
-        }
-        renderChart();
-    }
-
-    function renderChart() {
-        if (currentMatches.length === 0) return;
-        
-        // 获取所有选中的球队
-        let selectedTeams = Array.from(document.querySelectorAll('input[name="teamCheck"]:checked')).map(cb => cb.value);
-        
-        if (selectedTeams.length === 0) {
-            if (myChart) myChart.clear();
-            return;
-        }
-
-        let maxRound = Math.max(...currentMatches.map(m => m.round));
-        let totalTeams = getAllTeams().length;
-        let xData = [];
-        for(let i=1; i<=maxRound; i++) xData.push(`第${i}轮`);
-
-        // 为每支选中的球队准备数据系列
-        let seriesData = selectedTeams.map((team, index) => {
-            return {
-                name: team,
-                data: getTeamRankHistory(team),
-                type: 'line',
-                smooth: true, // 让线条圆滑一点，更好看
-                itemStyle: { color: colors[index % colors.length] },
-                lineStyle: { width: 3 },
-                label: { show: selectedTeams.length === 1 } // 只有选一个队时显示数字，多了会乱
-            };
-        });
-
-        if (!myChart) {
-            myChart = echarts.init(document.getElementById('trendChart'));
-        }
-
-        let option = {
-            tooltip: { trigger: 'axis' },
-            legend: { data: selectedTeams, bottom: 0 }, // 显示图例
-            grid: { left: '5%', right: '5%', bottom: '15%', top: '10%', containLabel: true },
-            xAxis: { type: 'category', data: xData, boundaryGap: false },
-            yAxis: { type: 'value', inverse: true, min: 1, max: totalTeams, minInterval: 1 },
-            series: seriesData
-        };
-        myChart.setOption(option, true);
-    }
-
-    // === 8. 网页启动入口 ===
-    window.onload = () => {
-        // 网页一加载，直接触发“切换联赛”逻辑，默认加载中超数据
-        changeLeague(); 
-    };
-
-    // 当浏览器窗口大小发生变化时，自动调整图表大小
-    window.addEventListener('resize', function() {
-        if (myChart) {
-            myChart.resize();
-        }
-    });
+    window.onload = () => { changeLeague(); };
+    window.addEventListener('resize', () => { if (myChart) myChart.resize(); if (radarChart) radarChart.resize(); });
 </script>
 </body>
 </html>
