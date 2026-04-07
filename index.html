@@ -40,6 +40,31 @@
             .hide-on-mobile { display: none; }
             #trendChart, #radarChart { height: 300px; }
         }
+
+        .radar-note {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-left: 4px solid #ccc;
+            font-size: 13px;
+            color: #555;
+            line-height: 1.6;
+        }
+        .radar-note h3 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: #333;
+        }
+        .radar-note ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .radar-note code {
+            background: #eee;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: Consolas, monospace;
+        }
     </style>
 </head>
 <body>
@@ -101,7 +126,19 @@
         <label><strong>🔍 选择分析球队：</strong></label>
         <select id="radarTeamSelect" onchange="renderRadar(this.value)"></select>
     </div>
+
     <div id="radarChart"></div>
+
+    <div class="radar-note">
+        <h3>💡 维度计算说明：</h3>
+        <ul>
+            <li><strong>进攻分值</strong>：总进球 ÷ 比赛场次。数值越高代表火力越猛。</li>
+            <li><strong>防守分值</strong>：计算公式为 <code>3 - 场均失球</code>。<strong>分数越高代表失球越少、防守越稳固</strong>（若场均失球超过3个则记为0分）。</li>
+            <li><strong>场均积分</strong>：总积分 ÷ 比赛场次。反映球队真实的拿分能力。</li>
+            <li><strong>胜率 (%)</strong>：胜场数 ÷ 总场次 × 100。</li>
+            <li><strong>稳定性分值</strong>：总净胜球 ÷ 比赛场次。反映球队对比赛的统治力。</li>
+        </ul>
+    </div>
 </div>
 
 <script>
@@ -297,9 +334,9 @@
             tooltip: { trigger: 'item' }, legend: { data: ['主场', '客场'], bottom: 0 },
             radar: {
                 indicator: [
-                    { name: '进攻(均进球)', max: 4, min: 0 }, { name: '防守(均失球反向)', max: 4, min: 0 },
-                    { name: '效率(均积分)', max: 3, min: 0 }, { name: '胜率(%)', max: 100, min: 0 },
-                    { name: '稳定性(均净胜)', max: 4, min: -4 }
+                    { name: '进攻分值', max: 4, min: 0 }, { name: '防守分值', max: 4, min: 0 },
+                    { name: '场均积分', max: 3, min: 0 }, { name: '胜率 (%)', max: 100, min: 0 },
+                    { name: '稳定性分值', max: 4, min: -4 }
                 ],
                 center: ['50%', '50%'], radius: '60%'
             },
