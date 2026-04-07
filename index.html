@@ -60,7 +60,6 @@
 <div class="container">
     <h1>足球联赛数据查询系统</h1>
     <div class="subtitle">支持多联赛、多赛季、排名走势与主客场深度画像</div>
-    
     <div class="controls" style="background-color: #e2e8f0; border: 1px solid #cbd5e1;">
         <label><strong>⚽ 选择联赛：</strong></label>
         <select id="leagueSelect" onchange="changeLeague()">
@@ -68,7 +67,6 @@
             <option value="epl">英超联赛</option>
             <option value="bundesliga">德甲联赛</option>
         </select>
-
         <label><strong>🏆 选择赛季：</strong></label>
         <select id="seasonSelect" onchange="changeSeason()"></select>
     </div>
@@ -83,11 +81,9 @@
             <option value="home">主场战绩</option>
             <option value="away">客场战绩</option>
         </select>
-
-        <label id="penaltyContainer" style="margin-left: 15px; font-size: 13px; display: none;">
-            <input type="checkbox" id="includePenalty" onchange="renderTable()"> 计入官方扣分
+        <label id="tablePenaltyContainer" style="margin-left: 15px; font-size: 13px; display: none;">
+            <input type="checkbox" id="tableIncludePenalty" onchange="renderTable()"> 计入官方扣分
         </label>
-
         <label><strong>📅 选择轮次：</strong></label>
         <select id="roundSelect" onchange="renderTable()"></select>
     </div>
@@ -107,26 +103,31 @@
 <div class="container">
     <h2>📈 球队排名走势对比</h2>
     <div class="subtitle">最多选择 5 支球队进行对比</div>
+    <div class="controls">
+        <label id="trendPenaltyContainer" style="font-size: 13px; display: none;">
+            <input type="checkbox" id="trendIncludePenalty" onchange="renderChart()"> 计入官方扣分进行排名
+        </label>
+    </div>
     <div class="checkbox-group" id="teamCheckboxes"></div>
     <div id="trendChart"></div>
 </div>
 
 <div class="container">
     <h2>🎯 球队表现深度画像</h2>
-    <div class="subtitle">对比分析球队在主场与客场的多维表现差异</div>
+    <div class="subtitle">对比分析球队在主场与客场的“纯比赛”表现差异</div>
     <div class="controls">
         <label><strong>🔍 选择分析球队：</strong></label>
         <select id="radarTeamSelect" onchange="renderRadar(this.value)"></select>
     </div>
     <div id="radarChart"></div>
     <div class="radar-note">
-        <h3>💡 维度计算说明：</h3>
+        <h3>💡 维度计算说明（不考虑官方扣分）：</h3>
         <ul>
-            <li><strong>进攻分值</strong>：总进球 ÷ 比赛场次。数值越高代表火力越猛。</li>
-            <li><strong>防守分值</strong>：计算公式为 <code>3 - 场均失球</code>。<strong>分数越高代表失球越少、防守越稳固</strong>。</li>
-            <li><strong>场均积分</strong>：总积分 ÷ 比赛场次。反映球队真实的拿分能力。</li>
-            <li><strong>胜率 (%)</strong>：胜场数 ÷ 总场次 × 100。</li>
-            <li><strong>稳定性分值</strong>：总净胜球 ÷ 比赛场次。反映球队对比赛的统治力。</li>
+            <li><strong>进攻分值</strong>：总进球 ÷ 比赛场次。</li>
+            <li><strong>防守分值</strong>：公式为 <code>3 - 场均失球</code>。分数越高代表失球越少。</li>
+            <li><strong>场均积分</strong>：总得分 ÷ 比赛场次。反映真实的拿分效率。</li>
+            <li><strong>胜率 (%)</strong>：胜场 ÷ 总场次 × 100。</li>
+            <li><strong>稳定性分值</strong>：总净胜球 ÷ 比赛场次。</li>
         </ul>
     </div>
 </div>
@@ -135,7 +136,7 @@
     let allSeasonsData = {}; 
     let currentMatches = [];
     let currentSeasonPenalties = null;
-    let currentLeagueRuleType = 'gd'; // 默认净胜球规则
+    let currentLeagueRuleType = 'gd'; 
     let myChart = null;
     let radarChart = null;
     const colors = ['#e3001b', '#004b87', '#28a745', '#ffc107', '#6f42c1'];
@@ -144,7 +145,7 @@
         let val = document.getElementById("leagueSelect").value;
         if (val === "csl") {
             allSeasonsData = typeof cslData !== 'undefined' ? cslData : {};
-            currentLeagueRuleType = 'h2h'; // 中超用相互战绩
+            currentLeagueRuleType = 'h2h'; 
         } else if (val === "epl") {
             allSeasonsData = typeof eplData !== 'undefined' ? eplData : {};
             currentLeagueRuleType = 'gd';
@@ -158,7 +159,6 @@
     function initSeasonSelect() {
         let ss = document.getElementById("seasonSelect");
         ss.innerHTML = "";
-        // 排除掉 ruleType 等非赛季字段
         for (let s in allSeasonsData) {
             if (s === 'ruleType') continue;
             let opt = document.createElement("option");
@@ -172,7 +172,6 @@
         let s = document.getElementById("seasonSelect").value;
         let data = allSeasonsData[s];
         
-        // 兼容数据格式：如果是对象则取 matches，如果是数组则直接赋值
         if (Array.isArray(data)) {
             currentMatches = data;
             currentSeasonPenalties = null;
@@ -181,12 +180,16 @@
             currentSeasonPenalties = data.penalties || null;
         }
         
+        // 更新扣分容器的显示隐藏
+        document.getElementById("tablePenaltyContainer").style.display = currentSeasonPenalties ? 'inline-block' : 'none';
+        document.getElementById("trendPenaltyContainer").style.display = currentSeasonPenalties ? 'inline-block' : 'none';
+
         updateSubSelects();
         renderTable();
         renderChart();
     }
 
-    function calculateStandings(targetRound, mode = 'total') {
+    function calculateStandings(targetRound, mode = 'total', applyPenalty = false) {
         let teams = {};
         let validMatches = currentMatches.filter(m => m.round <= targetRound);
         
@@ -211,8 +214,7 @@
         let standings = Object.values(teams).filter(t => t.played > 0);
         standings.forEach(t => t.gd = t.gf - t.ga);
 
-        const includePenalty = document.getElementById("includePenalty").checked;
-        if (mode === 'total' && includePenalty && currentSeasonPenalties) {
+        if (mode === 'total' && applyPenalty && currentSeasonPenalties) {
             standings.forEach(t => {
                 if (currentSeasonPenalties[t.name]) t.pts -= currentSeasonPenalties[t.name];
             });
@@ -246,17 +248,14 @@
         return 0;
     }
 
-    function getAllTeams() {
-        let teams = new Set();
-        currentMatches.forEach(m => { teams.add(m.home); teams.add(m.away); });
-        return Array.from(teams).sort();
-    }
-
     function getTeamRankHistory(teamName) {
         let maxR = currentMatches.length > 0 ? Math.max(...currentMatches.map(m => m.round)) : 0;
         let history = [];
+        // 走势图使用自己的独立开关
+        let applyPenalty = document.getElementById("trendIncludePenalty").checked;
+        
         for (let i = 1; i <= maxR; i++) {
-            let s = calculateStandings(i);
+            let s = calculateStandings(i, 'total', applyPenalty);
             let idx = s.findIndex(t => t.name === teamName);
             if (idx !== -1) history.push(idx + 1);
         }
@@ -275,7 +274,7 @@
             rs.appendChild(opt);
         }
         rs.value = maxR;
-        let teams = getAllTeams();
+        let teams = Array.from(new Set(currentMatches.flatMap(m => [m.home, m.away]))).sort();
         teams.forEach(t => {
             let lbl = document.createElement("label");
             lbl.innerHTML = `<input type="checkbox" name="teamCheck" value="${t}" onchange="limitAndRender(this)"> ${t}`;
@@ -310,7 +309,7 @@
             tooltip: { trigger: 'axis' }, legend: { data: selected, bottom: 0 },
             grid: { left: '3%', right: '4%', bottom: '15%', top: '5%', containLabel: true },
             xAxis: { type: 'category', data: xData, boundaryGap: false },
-            yAxis: { type: 'value', inverse: true, min: 1, max: getAllTeams().length, minInterval: 1 },
+            yAxis: { type: 'value', inverse: true, min: 1, max: 20, minInterval: 1 },
             series: seriesData
         }, true);
     }
@@ -318,8 +317,9 @@
     function renderRadar(teamName) {
         if (!teamName || currentMatches.length === 0) return;
         let round = parseInt(document.getElementById("roundSelect").value);
-        let h = calculateStandings(round, 'home').find(t => t.name === teamName);
-        let a = calculateStandings(round, 'away').find(t => t.name === teamName);
+        // 雷达图永远不计入扣分：applyPenalty = false
+        let h = calculateStandings(round, 'home', false).find(t => t.name === teamName);
+        let a = calculateStandings(round, 'away', false).find(t => t.name === teamName);
         if (!h || !a) return;
         const getM = (d) => [
             (d.gf / d.played).toFixed(2), 
@@ -330,7 +330,6 @@
         ];
         if (!radarChart) radarChart = echarts.init(document.getElementById('radarChart'));
         radarChart.setOption({
-            title: { text: `${teamName} 主客场对比`, left: 'center' },
             tooltip: { trigger: 'item' }, legend: { data: ['主场', '客场'], bottom: 0 },
             radar: {
                 indicator: [
@@ -351,15 +350,17 @@
 
     function renderTable() {
         let mode = document.getElementById("standingsTypeSelect").value;
-        let penaltyBox = document.getElementById("penaltyContainer");
-        penaltyBox.style.display = (mode === 'total') ? 'inline-block' : 'none';
+        let penaltyBox = document.getElementById("tablePenaltyContainer");
+        penaltyBox.style.display = (mode === 'total' && currentSeasonPenalties) ? 'inline-block' : 'none';
 
         let tbody = document.getElementById("tableBody");
         tbody.innerHTML = ""; 
         if (currentMatches.length === 0) return;
 
         let r = parseInt(document.getElementById("roundSelect").value);
-        let data = calculateStandings(r, mode);
+        // 积分榜使用自己的独立开关
+        let applyPenalty = document.getElementById("tableIncludePenalty").checked;
+        let data = calculateStandings(r, mode, applyPenalty);
 
         data.forEach((t, i) => {
             let tr = document.createElement("tr");
