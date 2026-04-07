@@ -71,32 +71,27 @@
 
 <div class="container">
     <div class="controls">
-        <label for="roundSelect"><strong>选择截止轮次：</strong></label>
+        <label for="roundSelect"><strong>📊 选择截止轮次：</strong></label>
         <select id="roundSelect" onchange="renderTable()"></select>
     </div>
-    <div class="container">
-        <div class="controls">
-            <label for="roundSelect"><strong>📊 选择截止轮次：</strong></label>
-            <select id="roundSelect" onchange="renderTable()"></select>
-        </div>
-        <div class="table-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>排名</th>
-                        <th>球队</th>
-                        <th>场次</th>
-                        <th>胜</th>
-                        <th>平</th>
-                        <th>负</th>
-                        <th class="hide-on-mobile">进球</th> <th class="hide-on-mobile">失球</th>
-                        <th>净胜</th>
-                        <th>积分</th>
-                    </tr>
-                </thead>
-                <tbody id="tableBody"></tbody>
-            </table>
-        </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>排名</th>
+                    <th>球队</th>
+                    <th>场次</th>
+                    <th>胜</th>
+                    <th>平</th>
+                    <th>负</th>
+                    <th class="hide-on-mobile">进球</th> 
+                    <th class="hide-on-mobile">失球</th>
+                    <th>净胜</th>
+                    <th>积分</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
     </div>
 </div>
 
