@@ -50,21 +50,9 @@
             color: #555;
             line-height: 1.6;
         }
-        .radar-note h3 {
-            margin: 0 0 10px 0;
-            font-size: 14px;
-            color: #333;
-        }
-        .radar-note ul {
-            margin: 0;
-            padding-left: 20px;
-        }
-        .radar-note code {
-            background: #eee;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-family: Consolas, monospace;
-        }
+        .radar-note h3 { margin: 0 0 10px 0; font-size: 14px; color: #333; }
+        .radar-note ul { margin: 0; padding-left: 20px; }
+        .radar-note code { background: #eee; padding: 2px 4px; border-radius: 3px; font-family: Consolas, monospace; }
     </style>
 </head>
 <body>
@@ -96,6 +84,10 @@
             <option value="away">客场战绩</option>
         </select>
 
+        <label id="penaltyContainer" style="margin-left: 15px; font-size: 13px; display: none;">
+            <input type="checkbox" id="includePenalty" onchange="renderTable()"> 计入官方扣分
+        </label>
+
         <label><strong>📅 选择轮次：</strong></label>
         <select id="roundSelect" onchange="renderTable()"></select>
     </div>
@@ -126,14 +118,12 @@
         <label><strong>🔍 选择分析球队：</strong></label>
         <select id="radarTeamSelect" onchange="renderRadar(this.value)"></select>
     </div>
-
     <div id="radarChart"></div>
-
     <div class="radar-note">
         <h3>💡 维度计算说明：</h3>
         <ul>
             <li><strong>进攻分值</strong>：总进球 ÷ 比赛场次。数值越高代表火力越猛。</li>
-            <li><strong>防守分值</strong>：计算公式为 <code>3 - 场均失球</code>。<strong>分数越高代表失球越少、防守越稳固</strong>（若场均失球超过3个则记为0分）。</li>
+            <li><strong>防守分值</strong>：计算公式为 <code>3 - 场均失球</code>。<strong>分数越高代表失球越少、防守越稳固</strong>。</li>
             <li><strong>场均积分</strong>：总积分 ÷ 比赛场次。反映球队真实的拿分能力。</li>
             <li><strong>胜率 (%)</strong>：胜场数 ÷ 总场次 × 100。</li>
             <li><strong>稳定性分值</strong>：总净胜球 ÷ 比赛场次。反映球队对比赛的统治力。</li>
@@ -144,37 +134,62 @@
 <script>
     let allSeasonsData = {}; 
     let currentMatches = [];
+    let currentSeasonPenalties = null;
+    let currentLeagueRuleType = 'gd'; // 默认净胜球规则
     let myChart = null;
     let radarChart = null;
     const colors = ['#e3001b', '#004b87', '#28a745', '#ffc107', '#6f42c1'];
 
-    // 1. 联赛切换
     function changeLeague() {
         let val = document.getElementById("leagueSelect").value;
-        if (val === "csl") allSeasonsData = typeof cslData !== 'undefined' ? cslData : {};
-        else if (val === "epl") allSeasonsData = typeof eplData !== 'undefined' ? eplData : {};
-        else if (val === "bundesliga") allSeasonsData = typeof bundesligaData !== 'undefined' ? bundesligaData : {};
-
-        cleanTeamNames();
+        if (val === "csl") {
+            allSeasonsData = typeof cslData !== 'undefined' ? cslData : {};
+            currentLeagueRuleType = 'h2h'; // 中超用相互战绩
+        } else if (val === "epl") {
+            allSeasonsData = typeof eplData !== 'undefined' ? eplData : {};
+            currentLeagueRuleType = 'gd';
+        } else if (val === "bundesliga") {
+            allSeasonsData = typeof bundesligaData !== 'undefined' ? bundesligaData : {};
+            currentLeagueRuleType = 'gd';
+        }
         initSeasonSelect();
     }
 
-    function cleanTeamNames() {
+    function initSeasonSelect() {
+        let ss = document.getElementById("seasonSelect");
+        ss.innerHTML = "";
+        // 排除掉 ruleType 等非赛季字段
         for (let s in allSeasonsData) {
-            allSeasonsData[s].forEach(m => {
-                if (m.home === "河南") m.home = "河南队";
-                if (m.home === "浙江") m.home = "浙江队";
-                if (m.away === "河南") m.away = "河南队";
-                if (m.away === "浙江") m.away = "浙江队";
-            });
+            if (s === 'ruleType') continue;
+            let opt = document.createElement("option");
+            opt.value = s; opt.text = s;
+            ss.appendChild(opt);
         }
+        if(Object.keys(allSeasonsData).length > 0) changeSeason();
     }
 
-    // 2. 积分计算逻辑
+    function changeSeason() {
+        let s = document.getElementById("seasonSelect").value;
+        let data = allSeasonsData[s];
+        
+        // 兼容数据格式：如果是对象则取 matches，如果是数组则直接赋值
+        if (Array.isArray(data)) {
+            currentMatches = data;
+            currentSeasonPenalties = null;
+        } else {
+            currentMatches = data.matches || [];
+            currentSeasonPenalties = data.penalties || null;
+        }
+        
+        updateSubSelects();
+        renderTable();
+        renderChart();
+    }
+
     function calculateStandings(targetRound, mode = 'total') {
         let teams = {};
         let validMatches = currentMatches.filter(m => m.round <= targetRound);
-
+        
         validMatches.forEach(m => {
             if (!teams[m.home]) teams[m.home] = { name: m.home, played: 0, win: 0, draw: 0, loss: 0, gf: 0, ga: 0, gd: 0, pts: 0 };
             if (!teams[m.away]) teams[m.away] = { name: m.away, played: 0, win: 0, draw: 0, loss: 0, gf: 0, ga: 0, gd: 0, pts: 0 };
@@ -196,25 +211,39 @@
         let standings = Object.values(teams).filter(t => t.played > 0);
         standings.forEach(t => t.gd = t.gf - t.ga);
 
+        const includePenalty = document.getElementById("includePenalty").checked;
+        if (mode === 'total' && includePenalty && currentSeasonPenalties) {
+            standings.forEach(t => {
+                if (currentSeasonPenalties[t.name]) t.pts -= currentSeasonPenalties[t.name];
+            });
+        }
+
         standings.sort((a, b) => {
             if (b.pts !== a.pts) return b.pts - a.pts;
-            if (mode === 'total') {
-                let mutual = validMatches.filter(m => (m.home === a.name && m.away === b.name) || (m.home === b.name && m.away === a.name));
-                if (mutual.length === 2) {
-                    let ap=0, bp=0, agd=0, bgd=0;
-                    mutual.forEach(m => {
-                        let aIsH = m.home === a.name;
-                        let as = aIsH ? m.homeScore : m.awayScore, bs = aIsH ? m.awayScore : m.homeScore;
-                        agd += (as-bs); bgd += (bs-as);
-                        if (as > bs) ap += 3; else if (as < bs) bp += 3; else { ap+=1; bp+=1; }
-                    });
-                    if (bp !== ap) return bp - ap;
-                    if (bgd !== agd) return bgd - agd;
-                }
+            if (currentLeagueRuleType === 'h2h' && mode === 'total') {
+                let res = compareMutual(a, b, validMatches); 
+                if (res !== 0) return res;
             }
-            return (b.gd !== a.gd) ? b.gd - a.gd : b.gf - a.gf;
+            if (b.gd !== a.gd) return b.gd - a.gd;
+            return b.gf - a.gf;
         });
         return standings;
+    }
+
+    function compareMutual(a, b, matches) {
+        let mutual = matches.filter(m => (m.home === a.name && m.away === b.name) || (m.home === b.name && m.away === a.name));
+        if (mutual.length === 2) {
+            let ap=0, bp=0, agd=0, bgd=0;
+            mutual.forEach(m => {
+                let aIsH = m.home === a.name;
+                let as = aIsH ? m.homeScore : m.awayScore, bs = aIsH ? m.awayScore : m.homeScore;
+                agd += (as-bs); bgd += (bs-as);
+                if (as > bs) ap += 3; else if (as < bs) bp += 3; else { ap+=1; bp+=1; }
+            });
+            if (bp !== ap) return bp - ap;
+            if (bgd !== agd) return bgd - agd;
+        }
+        return 0;
     }
 
     function getAllTeams() {
@@ -234,41 +263,18 @@
         return history;
     }
 
-    // 3. 页面联动
-    function initSeasonSelect() {
-        let ss = document.getElementById("seasonSelect");
-        ss.innerHTML = "";
-        for (let s in allSeasonsData) {
-            let opt = document.createElement("option");
-            opt.value = s; opt.text = s;
-            ss.appendChild(opt);
-        }
-        if(Object.keys(allSeasonsData).length > 0) changeSeason();
-    }
-
-    function changeSeason() {
-        let s = document.getElementById("seasonSelect").value;
-        currentMatches = allSeasonsData[s] || [];
-        updateSubSelects();
-        renderTable();
-        renderChart();
-    }
-
     function updateSubSelects() {
         let rs = document.getElementById("roundSelect");
         let tc = document.getElementById("teamCheckboxes");
         let rts = document.getElementById("radarTeamSelect");
-
         rs.innerHTML = ""; tc.innerHTML = ""; rts.innerHTML = "";
         if (currentMatches.length === 0) return;
-
         let maxR = Math.max(...currentMatches.map(m => m.round));
         for (let i = 1; i <= maxR; i++) {
             let opt = document.createElement("option"); opt.value = i; opt.text = `第 ${i} 轮`;
             rs.appendChild(opt);
         }
         rs.value = maxR;
-
         let teams = getAllTeams();
         teams.forEach(t => {
             let lbl = document.createElement("label");
@@ -283,26 +289,22 @@
     function limitAndRender(cb) {
         let checked = document.querySelectorAll('input[name="teamCheck"]:checked');
         if (checked.length > 5) {
-            alert("最多选择 5 支球队进行对比！");
+            alert("最多选择 5 支球队！");
             cb.checked = false; return;
         }
         renderChart();
     }
 
-    // 4. 图表渲染
     function renderChart() {
         if (currentMatches.length === 0) return;
         let selected = Array.from(document.querySelectorAll('input[name="teamCheck"]:checked')).map(cb => cb.value);
         if (selected.length === 0) { if (myChart) myChart.clear(); return; }
-
         let maxR = Math.max(...currentMatches.map(m => m.round));
         let xData = []; for(let i=1; i<=maxR; i++) xData.push(`第${i}轮`);
-
         let seriesData = selected.map((t, i) => ({
             name: t, data: getTeamRankHistory(t), type: 'line', smooth: true,
             itemStyle: { color: colors[i % colors.length] }, lineStyle: { width: 3 }
         }));
-
         if (!myChart) myChart = echarts.init(document.getElementById('trendChart'));
         myChart.setOption({
             tooltip: { trigger: 'axis' }, legend: { data: selected, bottom: 0 },
@@ -319,7 +321,6 @@
         let h = calculateStandings(round, 'home').find(t => t.name === teamName);
         let a = calculateStandings(round, 'away').find(t => t.name === teamName);
         if (!h || !a) return;
-
         const getM = (d) => [
             (d.gf / d.played).toFixed(2), 
             Math.max(0, (3 - d.ga / d.played)).toFixed(2), 
@@ -327,18 +328,16 @@
             ((d.win / d.played) * 100).toFixed(1), 
             (d.gd / d.played).toFixed(2)
         ];
-
         if (!radarChart) radarChart = echarts.init(document.getElementById('radarChart'));
         radarChart.setOption({
-            title: { text: `${teamName} 主客场表现对比`, left: 'center' },
+            title: { text: `${teamName} 主客场对比`, left: 'center' },
             tooltip: { trigger: 'item' }, legend: { data: ['主场', '客场'], bottom: 0 },
             radar: {
                 indicator: [
-                    { name: '进攻分值', max: 4, min: 0 }, { name: '防守分值', max: 4, min: 0 },
-                    { name: '场均积分', max: 3, min: 0 }, { name: '胜率 (%)', max: 100, min: 0 },
+                    { name: '进攻分值', max: 4 }, { name: '防守分值', max: 4 },
+                    { name: '场均积分', max: 3 }, { name: '胜率 (%)', max: 100 },
                     { name: '稳定性分值', max: 4, min: -4 }
-                ],
-                center: ['50%', '50%'], radius: '60%'
+                ]
             },
             series: [{
                 type: 'radar',
@@ -351,10 +350,15 @@
     }
 
     function renderTable() {
-        let tbody = document.getElementById("tableBody");
-        tbody.innerHTML = ""; if (currentMatches.length === 0) return;
-        let r = parseInt(document.getElementById("roundSelect").value);
         let mode = document.getElementById("standingsTypeSelect").value;
+        let penaltyBox = document.getElementById("penaltyContainer");
+        penaltyBox.style.display = (mode === 'total') ? 'inline-block' : 'none';
+
+        let tbody = document.getElementById("tableBody");
+        tbody.innerHTML = ""; 
+        if (currentMatches.length === 0) return;
+
+        let r = parseInt(document.getElementById("roundSelect").value);
         let data = calculateStandings(r, mode);
 
         data.forEach((t, i) => {

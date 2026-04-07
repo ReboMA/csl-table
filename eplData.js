@@ -1,5 +1,6 @@
 const eplData = {
-    "2023-2024赛季": [
+    "2023-2024赛季": {
+        "matches":[
             { round: 1, home: "伯恩利", away: "曼城", homeScore: 0, awayScore: 3 },
             { round: 1, home: "阿森纳", away: "诺丁汉森林", homeScore: 2, awayScore: 1 },
             { round: 1, home: "伯恩茅斯", away: "West Ham", homeScore: 1, awayScore: 1 },
@@ -380,5 +381,7 @@ const eplData = {
             { round: 38, home: "布伦特福德", away: "Newcastle", homeScore: 2, awayScore: 4 },
             { round: 38, home: "Sheffield Utd", away: "Tottenham", homeScore: 0, awayScore: 3 },
             { round: 38, home: "Luton", away: "富勒姆", homeScore: 2, awayScore: 4 },
-    ]
+        ],
+        "penalties": {"埃弗顿": 8, "诺丁汉森林": 4,}
+    }
 };
