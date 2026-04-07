@@ -11,18 +11,35 @@
     <script src="bundesligaData.js"></script>
 
     <style>
-        body { font-family: 'Microsoft YaHei', sans-serif; padding: 20px; background-color: #f4f4f9; }
-        .container { max-width: 900px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        h1 { text-align: center; color: #333; margin-bottom: 5px;}
-        .subtitle { text-align: center; color: #666; font-size: 14px; margin-bottom: 20px; }
-        .controls { text-align: center; margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; }
-        .controls select { padding: 8px 15px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc; margin: 0 10px; }
-        .controls label { margin-left: 15px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border-bottom: 1px solid #ddd; padding: 12px 8px; text-align: center; }
-        th { background-color: #004b87; color: white; }
-        tr:hover { background-color: #f1f1f1; }
-        #trendChart { width: 100%; height: 400px; margin-top: 20px; }
+        body { font-family: 'Microsoft YaHei', sans-serif; padding: 10px; background-color: #f4f4f9; margin: 0; }
+        /* 容器宽度改为百分比适配，最大 900px */
+        .container { width: 95%; max-width: 900px; margin: 10px auto; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); box-sizing: border-box; }
+        
+        h1 { text-align: center; color: #333; font-size: 1.5rem; margin-bottom: 5px; }
+        .subtitle { text-align: center; color: #666; font-size: 0.85rem; margin-bottom: 15px; }
+        
+        .controls { text-align: center; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px; }
+        /* 让下拉框在手机上更宽，更好点 */
+        .controls select { padding: 8px; font-size: 14px; border-radius: 5px; border: 1px solid #ccc; margin: 5px; width: auto; min-width: 120px; }
+
+        /* --- 关键：解决表格在手机上溢出的问题 --- */
+        .table-wrapper { width: 100%; overflow-x: auto; /* 开启水平滚动 */ -webkit-overflow-scrolling: touch; }
+        table { width: 100%; border-collapse: collapse; min-width: 600px; /* 保证表格内容不被挤扁 */ }
+        th, td { border-bottom: 1px solid #ddd; padding: 10px 5px; text-align: center; font-size: 13px; }
+        th { background-color: #004b87; color: white; white-space: nowrap; }
+
+        #trendChart { width: 100%; height: 350px; margin-top: 10px; }
+
+        /* --- 手机端专项优化 --- */
+        @media (max-width: 600px) {
+            body { padding: 5px; }
+            .container { padding: 10px; }
+            h1 { font-size: 1.2rem; }
+            .controls select { width: 90%; display: block; margin: 10px auto; } /* 下拉框在手机上堆叠显示 */
+            
+            /* 手机上隐藏一些不那么重要的列，节省空间 */
+            .hide-on-mobile { display: none; }
+        }
     </style>
 </head>
 <body>
@@ -32,39 +49,55 @@
     <div class="subtitle">支持多联赛、多赛季、按轮次查询积分榜与排名走势</div>
     
     <div class="controls" style="background-color: #e2e8f0; border: 1px solid #cbd5e1;">
-        <label for="leagueSelect" style="margin-left: 0;"><strong>⚽ 选择联赛：</strong></label>
+        <label for="leagueSelect" style="margin-left: 0;"><strong>选择联赛：</strong></label>
         <select id="leagueSelect" onchange="changeLeague()">
             <option value="csl">中超联赛</option>
 	    <option value="epl">英超联赛</option>
             <option value="bundesliga">德甲联赛</option>
             </select>
 
-        <label for="seasonSelect"><strong>🏆 选择赛季：</strong></label>
+        <label for="seasonSelect"><strong>选择赛季：</strong></label>
         <select id="seasonSelect" onchange="changeSeason()"></select>
     </div>
 </div>
 
 <div class="container">
-    <div class="controls">
-        <label for="teamSelect"><strong>📈 查看球队走势：</strong></label>
-        <select id="teamSelect" onchange="renderChart()"></select>
-    </div>
+    <h1>球队排名走势对比</h1>
+    <div class="subtitle">最多选择 5 支球队进行对比</div>
+    <div class="controls" id="teamCheckboxes" style="text-align: left; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;">
+        </div>
     <div id="trendChart"></div>
 </div>
 
 <div class="container">
     <div class="controls">
-        <label for="roundSelect"><strong>📊 选择截止轮次：</strong></label>
+        <label for="roundSelect"><strong>选择截止轮次：</strong></label>
         <select id="roundSelect" onchange="renderTable()"></select>
     </div>
-    <table>
-        <thead>
-            <tr>
-                <th>排名</th><th>球队</th><th>场次</th><th>胜</th><th>平</th><th>负</th><th>进球</th><th>失球</th><th>净胜球</th><th>积分</th>
-            </tr>
-        </thead>
-        <tbody id="tableBody"></tbody>
-    </table>
+    <div class="container">
+        <div class="controls">
+            <label for="roundSelect"><strong>📊 选择截止轮次：</strong></label>
+            <select id="roundSelect" onchange="renderTable()"></select>
+        </div>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>排名</th>
+                        <th>球队</th>
+                        <th>场次</th>
+                        <th>胜</th>
+                        <th>平</th>
+                        <th>负</th>
+                        <th class="hide-on-mobile">进球</th> <th class="hide-on-mobile">失球</th>
+                        <th>净胜</th>
+                        <th>积分</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -214,28 +247,33 @@
     }
 
     function updateSubSelects() {
-        let roundSelect = document.getElementById("roundSelect");
-        let teamSelect = document.getElementById("teamSelect");
-        roundSelect.innerHTML = "";
-        teamSelect.innerHTML = "";
+    let roundSelect = document.getElementById("roundSelect");
+    let checkboxContainer = document.getElementById("teamCheckboxes");
+    
+    roundSelect.innerHTML = "";
+    checkboxContainer.innerHTML = ""; // 清空旧的勾选框
 
-        if (currentMatches.length === 0) return;
+    if (currentMatches.length === 0) return;
 
-        let maxRound = Math.max(...currentMatches.map(m => m.round));
-        for (let i = 1; i <= maxRound; i++) {
-            let option = document.createElement("option");
-            option.value = i; option.text = `第 ${i} 轮`;
-            roundSelect.appendChild(option);
-        }
-        roundSelect.value = maxRound;
-
-        let allTeams = getAllTeams();
-        allTeams.forEach(team => {
-            let option = document.createElement("option");
-            option.value = team; option.text = team;
-            teamSelect.appendChild(option);
-        });
+    // 更新轮次下拉框
+    let maxRound = Math.max(...currentMatches.map(m => m.round));
+    for (let i = 1; i <= maxRound; i++) {
+        let option = document.createElement("option");
+        option.value = i; option.text = `第 ${i} 轮`;
+        roundSelect.appendChild(option);
     }
+    roundSelect.value = maxRound;
+
+    // 动态生成球队勾选框
+    let allTeams = getAllTeams();
+    allTeams.forEach(team => {
+        let label = document.createElement("label");
+        label.style.marginRight = "10px";
+        label.style.cursor = "pointer";
+        label.innerHTML = `<input type="checkbox" name="teamCheck" value="${team}" onchange="limitAndRender(this)"> ${team}`;
+        checkboxContainer.appendChild(label);
+    });
+}
 
     function renderTable() {
         let tbody = document.getElementById("tableBody");
@@ -254,9 +292,7 @@
                 <td>${team.win}</td>
                 <td>${team.draw}</td>
                 <td>${team.loss}</td>
-                <td>${team.gf}</td>
-                <td>${team.ga}</td>
-                <td>${team.gd}</td>
+                <td class="hide-on-mobile">${team.gf}</td> <td class="hide-on-mobile">${team.ga}</td> <td>${team.gd}</td>
                 <td><strong>${team.pts}</strong></td>
             `;
             tbody.appendChild(tr);
@@ -264,31 +300,58 @@
     }
 
     let myChart = null;
+    const colors = ['#e3001b', '#004b87', '#28a745', '#ffc107', '#6f42c1']; // 预设颜色
+
+    function limitAndRender(checkbox) {
+        let checked = document.querySelectorAll('input[name="teamCheck"]:checked');
+        if (checked.length > 5) {
+            alert("最多只能选择 5 支球队进行比较哦！");
+            checkbox.checked = false;
+            return;
+        }
+        renderChart();
+    }
+
     function renderChart() {
         if (currentMatches.length === 0) return;
-        let team = document.getElementById("teamSelect").value;
+        
+        // 获取所有选中的球队
+        let selectedTeams = Array.from(document.querySelectorAll('input[name="teamCheck"]:checked')).map(cb => cb.value);
+        
+        if (selectedTeams.length === 0) {
+            if (myChart) myChart.clear();
+            return;
+        }
+
         let maxRound = Math.max(...currentMatches.map(m => m.round));
         let totalTeams = getAllTeams().length;
-        
         let xData = [];
         for(let i=1; i<=maxRound; i++) xData.push(`第${i}轮`);
-        let yData = getTeamRankHistory(team);
+
+        // 为每支选中的球队准备数据系列
+        let seriesData = selectedTeams.map((team, index) => {
+            return {
+                name: team,
+                data: getTeamRankHistory(team),
+                type: 'line',
+                smooth: true, // 让线条圆滑一点，更好看
+                itemStyle: { color: colors[index % colors.length] },
+                lineStyle: { width: 3 },
+                label: { show: selectedTeams.length === 1 } // 只有选一个队时显示数字，多了会乱
+            };
+        });
 
         if (!myChart) {
             myChart = echarts.init(document.getElementById('trendChart'));
         }
 
         let option = {
-            tooltip: { trigger: 'axis', formatter: function (params) { return `${params[0].name}<br/>排名: 第 <b>${params[0].data}</b> 名`; } },
-            grid: { left: '5%', right: '5%', bottom: '10%', top: '10%', containLabel: true },
+            tooltip: { trigger: 'axis' },
+            legend: { data: selectedTeams, bottom: 0 }, // 显示图例
+            grid: { left: '5%', right: '5%', bottom: '15%', top: '10%', containLabel: true },
             xAxis: { type: 'category', data: xData, boundaryGap: false },
             yAxis: { type: 'value', inverse: true, min: 1, max: totalTeams, minInterval: 1 },
-            series: [{
-                name: '排名', data: yData, type: 'line',
-                label: { show: true, position: 'bottom', formatter: '{c}' },
-                itemStyle: { color: '#e3001b' },
-                lineStyle: { width: 3 }
-            }]
+            series: seriesData
         };
         myChart.setOption(option, true);
     }
@@ -298,6 +361,13 @@
         // 网页一加载，直接触发“切换联赛”逻辑，默认加载中超数据
         changeLeague(); 
     };
+
+    // 当浏览器窗口大小发生变化时，自动调整图表大小
+    window.addEventListener('resize', function() {
+        if (myChart) {
+            myChart.resize();
+        }
+    });
 </script>
 </body>
 </html>
